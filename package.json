@@ -1,0 +1,21 @@
+{
+  "name": "book-builder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "codemirror": "^5.65.3",
+    "commonmark": "^0.30.0",
+    "image-size": "^1.0.1",
+    "marked": "^4.0.15",
+    "pdfkit": "^0.13.0"
+  },
+  "devDependencies": {
+    "@types/pdfkit": "^0.12.6"
+  }
+}
