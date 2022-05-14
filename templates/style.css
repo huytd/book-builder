@@ -1,0 +1,35 @@
+@page {
+    size: A5;
+    margin: 0.5in;
+    text-align: justify;
+    font-family: 'Iowan Old Style', serif;
+}
+
+@page:left {
+    margin-left: 0.5in;
+    margin-right: 1.25in;
+}
+
+@page:right {
+    margin-right: 0.5in;
+    margin-left: 1.25in;
+}
+
+.cover-page { page: cover-page; }
+@page cover-page {
+  background-color: #347DBD;
+  color: white;
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+
+.page-break { break-after: page; }
+h1:not(.no-break) { break-before: page; margin-block-start: 0rem; margin-block-end: 1.66rem; }
+h2:not(.no-break) { break-before: page; margin-block-start: 0rem; margin-block-end: 1.66rem; }
+h2.no-break:not(.top) { margin-block-start: 3rem; margin-block-end: 1.66rem;}
+h2.top { margin-block-start: 0rem; margin-block-end: 1.66rem; }
+
+h3:not(.top) {margin-block-start: 2.49rem; margin-block-end: 0.83rem;}
+h3.top { margin-block-start: 1.66rem; margin-block-end: 0.83rem; }
