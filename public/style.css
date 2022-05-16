@@ -1,13 +1,16 @@
 :root {
     --font-heading: 'Roboto Condensed', sans-serif;
-    --font-mono: 'Courier Prime', monospace;
+    --font-mono: 'Roboto Mono', monospace;
     --font-body: 'Crimson Pro', serif;
     --font-size-base: 19px;
+    --font-size-mono: 16px;
     --font-size-small: 16px;
 }
 
 body {
     background: #333;
+    font-family: var(--font-body);
+    font-size: var(--font-size-base);
 }
 
 h1, h2, h3 {
@@ -18,19 +21,29 @@ h1, h2, h3 {
 
 code, pre {
     font-family: var(--font-mono);
+    font-size: var(--font-size-mono);
+}
+
+a {
+    text-decoration: none;
+    color: currentColor;
+}
+
+pre {
+    max-width: 100%;
+    word-break: break-all;
 }
 
 @page {
     size: executive;
-    margin: 0.825in 0.625in 0.75in;
+    margin: 0.825in 0.65in 0.65in;
     text-align: justify;
-    font-family: var(--font-body);
-    font-size: var(--font-size-base);
     line-height: 1.25em;
     background: #FFF;
 }
 
 @page:left {
+    margin-right: 1.25in;
     @top-left {
         font-family: var(--font-heading);
         font-size: var(--font-size-small);
@@ -40,6 +53,7 @@ code, pre {
 }
 
 @page:right {
+    margin-left: 1.25in;
     @top-right {
         font-family: var(--font-heading);
         font-size: var(--font-size-small);
@@ -48,7 +62,13 @@ code, pre {
     }
 }
 
+img {
+    max-width: 90%;
+    margin: 0 auto;
+}
+
 .chapter-cover {
+    page-break-before: right;
     height: 50%;
     display: flex;
     margin-top: 20%;
@@ -67,7 +87,7 @@ code, pre {
 }
 
 .chapter-cover .chapter-number {
-    flex-basis: 20%;
+    flex-basis: 15%;
     text-align: right;
 }
 
@@ -78,3 +98,9 @@ code, pre {
 
 
 .page-break { break-after: page; }
+
+hr {
+    width: 0; height: 0;
+    visibility: hidde;
+    break-after: page;
+}

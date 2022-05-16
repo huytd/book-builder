@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title></title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="interface.css" rel="stylesheet">
+        <link href="style.css" rel="stylesheet">
+        <link href="grayscale.css" rel="stylesheet">
+        <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Crimson+Pro:ital,wght@0,400;0,600;0,800;1,400;1,600;1,800&family=Roboto+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    </head>
+    <body>
+        
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h3 class="no-break">Memory Management</h3>
+                <h1 class="no-break">Đừng đánh nhau với borrow&nbsp;checker</h1>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Chapter</h3>
+                <h1 class="no-break">1</h1>
+            </div>
+        </div>
+         <p><img src="img/borrow-checker-001.png" alt=""></p>
+<p>Một trong những cơn ác mộng của lập trình viên khi làm việc với Rust đó là chuyện đập nhau với borrow checker, ví dụ như những lúc bị compiler chửi vào mặt như thế này.</p>
+<pre><code class="language-rust"><span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() {
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">a</span> = <span class="hljs-built_in">vec!</span>[<span class="hljs-number">5</span>];
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">b</span> = a;
+    <span class="hljs-built_in">println!</span>(<span class="hljs-string">&quot;{:?}&quot;</span>, a);
+}
+</code></pre>
+<pre><code class="language-rust">error[E0382]: <span class="hljs-keyword">use</span> of moved value: `a`
+ -<span class="hljs-punctuation">-&gt;</span> borrowchecker.rs:<span class="hljs-number">4</span>:<span class="hljs-number">22</span>
+  |
+<span class="hljs-number">3</span> |     <span class="hljs-keyword">let</span> <span class="hljs-variable">b</span> = a;
+  |         - value moved here
+<span class="hljs-number">4</span> |     <span class="hljs-built_in">println!</span>(<span class="hljs-string">&quot;{:?}&quot;</span>, a);
+  |                      ^ value used here after <span class="hljs-keyword">move</span>
+  |
+  = note: <span class="hljs-keyword">move</span> occurs because `a` has <span class="hljs-keyword">type</span> `std::vec::<span class="hljs-type">Vec</span>&lt;<span class="hljs-type">i32</span>&gt;`,
+  | which does not implement the `<span class="hljs-built_in">Copy</span>` <span class="hljs-keyword">trait</span>
+</code></pre>
+<p>Chỉ với một câu lệnh gán thông thường, chúng ta đã bị ăn lỗi.</p>
+<p>Và trong hầu hết mọi trường hợp thì kẻ có lỗi chính là các lập trình viên :joy: Borrow checker cũng chưa bao giờ đập ai (nó chỉ đứng đó và chửi vô mặt người ta thôi). Lỗi ở đây chính là vì chúng ta không hiểu về mô hình quản lý bộ nhớ của Rust, và các quy tắc mà ngôn ngữ lập trình này đặt ra.</p>
+<p>Vậy Rust kiểm soát bộ nhớ như thế nào? Và làm sao để chúng ta có thể làm vừa lòng Rust compiler trong những trường hợp như thế này?</p>
+<p>Bài viết này sẽ giúp các bạn hiểu được chuyện đó thông qua hai vấn đề chính: <strong>Ownership</strong> (quyền sở hữu của một biến) và <strong>Borrowing</strong> (vay mượn/tham chiếu giữa các biến).</p>
+<h2 id="ownership">Ownership</h2>
+<p>Trong máy tính, bộ nhớ (memory) là từ dùng để chỉ các ô nằm liền kề nhau để lưu trữ thông tin.</p>
+<p><img src="img/borrow-checker-002.png" alt=""></p>
+<p>Khi chúng ta khai báo một biến mới trong Rust, một vùng nhớ sẽ được cấp phát trong bộ nhớ, và nó sẽ mọc thêm mắt mũi chân càng như thế này:</p>
+<p><img src="img/borrow-checker-003.png" alt=""></p>
+<p>Just kididng :joy: một biến <code>a</code> khi được khai báo, máy tính sẽ cấp phát một vùng nhớ trên stack, với giá trị mặc định là giá trị được truyền vào khi khai báo. Địa chỉ của vùng nhớ này sẽ được gán cho biến <code>a</code>.</p>
+<p>Khi đó ta có thể coi là: vùng nhớ này thuộc về biến <code>a</code>, và <code>a</code> có quyền sở hữu (ownership) đối với vùng nhớ đó.</p>
+<p>Một vùng nhớ tại một thời điểm chỉ có thể thuộc về duy nhất một biến. Và điều gì xảy ra nếu ta gán một biến vào một biến khác?</p>
+<p><img src="img/borrow-checker-005.png" alt=""></p>
+<p>Quyền sở hữu vùng nhớ của biến này sẽ được chuyển sang biến khác, ở ví dụ trên ta khai báo biến <code>a</code> là một <code>vector</code>, sau đó gán biến <code>a</code> cho <code>b</code>, lúc này vùng nhớ mà biến <code>a</code> sở hữu đã được chuyển (move) sang cho <code>b</code>.</p>
+<p>Nếu ngay sau đó chúng ta tìm cách đọc biến <code>a</code> thì sẽ gặp lỗi, vì không còn mang giá trị nào để có thể đọc được nữa.</p>
+<pre><code class="language-rust">error[E0382]: <span class="hljs-keyword">use</span> of moved value: `a`
+  |
+<span class="hljs-number">3</span> |     <span class="hljs-keyword">let</span> <span class="hljs-variable">b</span> = a;
+  |         - value moved here
+<span class="hljs-number">4</span> |     <span class="hljs-built_in">println!</span>(<span class="hljs-string">&quot;{:?}&quot;</span>, a);
+  |                      ^ value used here after <span class="hljs-keyword">move</span>
+  |
+</code></pre>
+<p>Để tránh việc giá trị của một biến bị moved sau khi thực hiện phép gán, ta có thể implement trait <a href="https://doc.rust-lang.org/std/marker/trait.Copy.html">Copy</a> cho kiểu dữ liệu của biến đó.</p>
+<pre><code class="language-rust"><span class="hljs-meta">#[derive(Copy, Clone)]</span>
+<span class="hljs-keyword">struct</span> <span class="hljs-title class_">Point</span> {
+  x: <span class="hljs-type">i32</span>,
+  y: <span class="hljs-type">i32</span>
+}
+</code></pre>
+<p>Chức năng của <code>Copy</code> trait đúng với tên gọi của nó, khi phép gán xảy ra, thì thay vì move giá trị của biến này sang biến khác, Rust runtime sẽ copy giá trị đó. Và sau phép gán, cả 2 biến vẫn có thể được sử dụng một cách bình thường.</p>
+<p><img src="img/borrow-checker-006.png" alt=""></p>
+<p>Một số kiểu dữ liệu như <code>i32</code> thường được implement sẵn trait này. Để biết kiểu dữ liệu mình tính xài được implement sẵn những trait nào thì bạn có thể xem trong phần <a href="https://doc.rust-lang.org/std/primitive.i32.html#implementations">Trait Implementations</a> của kiểu dữ liệu đó.</p>
+<h2 id="borrowing">Borrowing</h2>
+<p>Sao Rust compiler khó tánh dữ vậy? Giá trị của một biến thì thuộc quyền sở hữu của biến đó à? Vậy làm sao để truyền dữ liệu qua lại giữa các biến? Lỡ kiểu dữ liệu tui xài hổng có implement trait <code>Copy</code> thì làm sao?</p>
+<p>Đến đây thì chúng ta bắt gặp một vấn đề rất là đời thường, xin nhắc lại, mặc dù Rust là một ngôn ngữ lập trình nhưng nó luôn phản ánh đúng với thực trạng của xã hội, đây là vấn đề thường ngày trong chuyện giao tiếp giữa người với người, vâng, rất nhân văn: <strong>Muốn xài đồ của người khác thì tất nhiên phải đi mượn</strong> (borrow).</p>
+<p><img src="img/borrow-checker-007.png" alt=""></p>
+<p>Để mượn một giá trị trong Rust rất dễ, chúng ta chỉ cần đặt dấu <code>&amp;</code> vào trước biến cần mượn. Ví dụ:</p>
+<pre><code class="language-rust"><span class="hljs-keyword">let</span> <span class="hljs-variable">b</span> = &amp;a;
+</code></pre>
+<p>Và tất nhiên khi đem cho mượn, giá trị của một biến vẫn thuộc quyền sở hữu của biến đó, Rust chỉ tạo một <strong>tham chiếu</strong> (references) đến vùng nhớ chứa giá trị này, chứ không move nó đi chỗ khác. Chính vì vậy, một biến có thể cho mượn bao nhiêu lần tùy ý. Nhưng với một điều kiện, đó là <strong>các tham chiếu đến giá trị của biến đó là readonly</strong>. Tức là không ai có thể thay đổi được giá trị của biến, trừ chính biến đó.</p>
+<p><img src="img/borrow-checker-008.png" alt=""></p>
+<p>Cũng giống như khi bạn cho ai mượn ví tiền của bạn chỉ để xem cái ví như thế nào thôi, thì người ta không có quyền lấy tiền từ ví của bạn. Nhưng với vợ bạn thì sẽ khác… :sob:</p>
+<p>Vợ bạn có thể dùng <code>&amp;mut</code> để <strong>vừa mượn vừa thay đổi được</strong> số tiền trong ví của bạn.</p>
+<p><img src="img/borrow-checker-009.png" alt=""></p>
+<p><strong>Lưu ý:</strong> Có thể bạn biết rồi, trong Rust, mọi giá trị được khai báo đều là <strong>immutable</strong>, nghĩa là không thể thay đổi được. Vì thế một biến được khai báo theo cách thông thường thì cũng <strong>immutable</strong> nốt. Nếu ta mượn một biến immutable để ghi (mutate nó) thì sẽ bị ăn lỗi:</p>
+<pre><code class="language-rust">error[E0596]: cannot borrow immutable local variable `a` <span class="hljs-keyword">as</span> mutable
+ -<span class="hljs-punctuation">-&gt;</span> borrowchecker.rs:<span class="hljs-number">3</span>:<span class="hljs-number">18</span>
+  |
+<span class="hljs-number">2</span> |     <span class="hljs-keyword">let</span> <span class="hljs-variable">a</span> = <span class="hljs-number">10</span>;
+  |         - consider changing this to `<span class="hljs-keyword">mut</span> a`
+<span class="hljs-number">3</span> |     <span class="hljs-keyword">let</span> <span class="hljs-variable">b</span> = &amp;<span class="hljs-keyword">mut</span> a;
+  |                  ^ cannot borrow mutably
+</code></pre>
+<p>Để không phải đau đầu với chuyện mượn/trả, moving của các biến, chúng ta có các quy tắc cần nhớ sau:</p>
+<ul>
+<li>Một biến sau khi được gán thì không dùng được nữa (bị moved)</li>
+<li>Muốn dùng một biến sau khi gán thì có thể borrow nó, hoặc implement <code>Copy</code> trait cho kiểu dữ liệu của nó</li>
+<li>Một biến có thể được mượn để đọc (immutable borrow) không giới hạn số lần</li>
+<li>Chỉ có duy nhất một lần mượn để ghi (mutable borrow) tại một thời điểm</li>
+</ul>
+<p>Tạm thời viết chừng này đã, bài này nằm trong thư mục draft lâu quá rồi :think-cry:. Ở phần tiếp theo chúng ta sẽ tiếp tục tìm hiểu sang khái niệm còn lại, đó là <code>Lifetime</code>.</p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h3 class="no-break">Error Handling</h3>
+                <h1 class="no-break">Rust không có NULL thì code kiểu gì?</h1>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Chapter</h3>
+                <h1 class="no-break">2</h1>
+            </div>
+        </div>
+         <p>Có lẽ một số bạn sẽ có thắc mắc như tiêu đề khi mới tìm hiểu về Rust. Hẳn là các bạn đã biết, hoặc nghe đâu đó là: <strong>Trong Rust không có NULL</strong>. Bài viết này sẽ giúp cho các bạn hiểu rõ hơn về vấn đề này.</p>
+<h2 id="null-trong-các-ngôn-ngữ-lập-trình">NULL trong các ngôn ngữ lập trình</h2>
+<p>Đã là lập trình viên, chắc hẳn ai cũng quá quen thuộc với <code>NULL</code>, hay <code>nil</code>.</p>
+<p>Thậm chí trong phiên bản Pokemon Sun &amp; Pokemon Moon mới nhất (ở thời điểm viết bài này), cũng xuất hiện một Pokemon mới tên là <strong>Type: Null</strong> (<a href="http://bulbapedia.bulbagarden.net/wiki/Type:_Null_(Pok%C3%A9mon)">タイプ：ヌル</a>).</p>
+<p><img src="img/typenull.jpg" alt=""></p>
+<p>=)) lạc đề, quay lại chủ đề chính.</p>
+<p><code>NULL</code> là một giá trị diễn tả trạng thái không có gì cả, một giá trị chưa biết. Trong trường hợp là một con trỏ thì <code>NULL</code> cho biết con trỏ này không trỏ tới đâu cả.</p>
+<p>Việc sử dụng <code>NULL</code> là rất phổ biến, ví dụ một trong những best practices khi lập trình C đó là kiểm tra giá trị <code>NULL</code> khi sử dụng hàm <code>malloc</code> để cấp phát bộ nhớ:</p>
+<pre><code>#include &lt;stdlib.h&gt;
+
+char* str = malloc(_MATH_PATH);
+if (str == NULL) {
+  printf(&quot; Lỗi rồi các bác ạ! Buồn quá! Không đủ bộ nhớ! :( &quot;);
+} else {
+  // Đã cấp phát bộ nhớ thành công cho biến str
+}
+</code></pre>
+<p>Hay như cách kiểm tra lỗi vô cùng “đẹp mắt” của Golang:</p>
+<pre><code>f, err := os.Open(&quot;how-to-be-a-richman.txt&quot;)
+if err != nil {
+  // Tạch chỗ này nè
+  log.Fatal(err)
+}
+// Tới được đây thì không tạch nhá
+</code></pre>
+<p>Tuy nhiên, dù được dùng rất phổ biến, việc tạo ra giá tri <code>NULL</code> vẫn bị chính cha đẻ của nó coi là một sai lầm “trị giá tỉ đô”<sup><a href="#-c-th-m">[1]</a></sup>.</p>
+<p>Trong suốt lịch sử phát triển của nền khoa học máy tính, đã có vô số chương trình máy tính tỏi không lý do, bởi cùng một hung thủ đó là <code>Null Pointer Exception</code>. =))</p>
+<p><img src="img/nullpointermeme.jpeg" alt=""></p>
+<p>Hoặc có thể kể đến mối quan hệ nhập nhằng mù mờ giữa <code>null</code> và <code>undefined</code> đã khiến bao nhiêu thế hệ lập trình viên JavaScript phải vò đầu bứt tai:</p>
+<pre><code>typeof null           // &quot;object&quot;
+typeof undefined      // &quot;undefined&quot;
+null === undefined    // false
+null  == undefined    // true
+null === null         // true
+null == null          // true
+!null                 // true
+isNaN(1 + null)       // false
+isNaN(1 + undefined)  // true
+</code></pre>
+<p>Hoặc đối với SQL, chúng ta không thể so sánh giá trị <code>NULL</code> với các field trong một bảng một cách trực tiếp bằng các toán tử <code>=</code> hay <code>&lt;&gt;</code> được, mà phải dùng các toán tử đặc biệt, là <code>IS</code> và <code>IS NOT</code> để làm việc với chúng.<sup><a href="#-c-th-m">[2]</a></sup></p>
+<h2 id="tại-sao-lại-phải-check-null">Tại sao lại phải check NULL?</h2>
+<p>Trong hầu hết mọi trường hợp, chúng ta thực hiện thao tác kiểm tra một biến có phải là <code>NULL</code> không, là vì chúng ta cần dùng tới giá trị của biến đó, nhưng lại sợ rằng nó không mang giá trị. Và vì sợ nên cứ phải check.</p>
+<p><img src="img/nullpointer.jpeg" alt=""></p>
+<p>Giống như cứ bước ra khỏi nhà là cho tay vào sờ cái quần, à, cái túi quần, để kiểm tra xem mình có đem theo điện thoại không. Riết rồi thành quen, đưa tay sờ quần như một phản xạ tự nhiên.</p>
+<p>Vậy làm sao để khỏi phải đưa tay sờ quần liên tục nữa? Phải có một cách gì đó để chắc chắn rằng cái điện thoại luôn luôn nằm trong túi, đúng không?</p>
+<p>Tương tự như thế đối với lập trình, để thoát khỏi việc check <code>NULL</code> liên tục thì ta phải có cách gì đó để đảm bảo rằng một giá trị không bao giờ bị <code>NULL</code>.</p>
+<p>Để làm được điều này, Rust không cho bạn gán bất kì giá trị nào là <code>NULL</code> cả (dữ dội chưa, quản không được thì cấm luôn cho khỏe :))) và Rust không phải là ngôn ngữ đầu tiên hoặc duy nhất áp dụng phương pháp này, một số ngôn ngữ lập trình hàm như Haskell cũng cấm không cho một biến mang giá trị <code>NULL</code>. <sup><a href="https://kipalog.com/posts/Co-Khong---Functional-idioms-de-dung-nullable-values-voi-functions-nhu-normal-values--Phan-1">[3]</a></sup></p>
+<p>(Nói như vậy không có nghĩa Rust là một ngôn ngữ lập trình hàm nhé)</p>
+<h2 id="không-cho-xài-null-thì-giờ-xài-gì">Không cho xài NULL thì giờ xài gì?</h2>
+<p>Và cũng giống như Haskell, Rust cung cấp một kiểu gọi là <code>Option&lt;T&gt;</code> (trong Haskell là <code>Maybe</code> và trong Swift là <code>Optional</code>, giờ thì trong Java cũng có nốt), cho chúng ta một phương pháp khác để giải quyết vấn đề mà không cần dùng tới <code>NULL</code>.</p>
+<p>Ở <a href="https://thefullsnack.com/posts/rust-binary-tree-traversal.html">bài trước</a> mình cũng đã giới thiệu cách sử dụng <code>Option&lt;T&gt;</code>.</p>
+<p>Bây giờ là lúc nói rõ hơn về vấn đề này.</p>
+<h3 id="bản-chất-của-kiểu-option">Bản chất của kiểu Option</h3>
+<p>Bằng việc bỏ <code>NULl</code>, từ bây giờ mỗi khi sử dụng một biến, bạn có thể yên tâm rằng biến đó luôn có giá trị, không bị <code>NULL</code> nữa.</p>
+<p>Khi gặp một vấn đề mà ta chưa biết chắc chắn kết quả trả về của vấn đề đó như thế nào, nó có thể chứa giá trị hoặc không, ví dụ như trong linked list, hoặc khi implement một hàm chia hai số <code>a</code> và <code>b</code>, thì ta có thể dùng kiểu <code>Option&lt;T&gt;</code>.</p>
+<p>Một biến kiểu <code>Option&lt;T&gt;</code> sẽ luôn luôn tồn tại một trong hai giá trị <code>None</code> (không có giá trị nào cả) hoặc <code>Some(T)</code> (trả về giá trị kiểu <code>T</code> của biến đó). Ví dụ:</p>
+<pre><code>fn divide(a: f64, b: f64) -&gt; Option&lt;f64&gt; {
+  if b == 0.0 {
+    None
+  } else {
+    Some(a / b)
+  }
+}
+</code></pre>
+<p>Trong đoạn code trên, chúng ta kiểm tra nếu mẫu số <code>b</code> bằng <code>0</code> thì phép chia không thực hiện được, và hàm <code>divide(a,b)</code> trả về giá trị <code>None</code>, ngược lại thì trả về giá trị <code>Some(a / b)</code>.</p>
+<p>Vậy chúng ta sẽ làm gì với một trong 2 giá trị trả về này? Chúng ta sẽ lấy nó ra như thế nào?</p>
+<h3 id="dùng-match-để-handle-các-giá-trị-trả-về">Dùng match để handle các giá trị trả về</h3>
+<p>Khi nhận được một giá trị kiểu <code>Option&lt;T&gt;</code>, chúng ta có thể đọc giá trị từ biến này ra bằng cách dùng <code>match</code>:</p>
+<pre><code>match result {
+  Some(c) =&gt; println!(&quot;Kết quả là: {}&quot;, c),
+  None    =&gt; println!(&quot;Không chia được cho 0 đâu nhá!&quot;)
+}
+</code></pre>
+<p>Tất nhiên đến đây thì chưa có gì đáng nói, nghe có vẻ giống với câu lệnh <code>switch()</code> ở các ngôn ngữ khác.</p>
+<p>Điều đáng nói ở đây là <code>match</code> bắt buộc bạn <strong>phải kiểm tra hết tất cả mọi trường hợp có thể xảy ra</strong> (exhaustiveness checking), ví dụ như ở đoạn code trên mà bạn không handle trường hợp <code>None</code> thì sẽ nhận thông báo lỗi:</p>
+<pre><code>error: non-exhaustive patterns: `None` not covered
+</code></pre>
+<p>Vì chúng ta sử dụng kiểu <code>Option&lt;T&gt;</code> cho một biến khi chúng ta không chắc chắn giá trị của nó là gì, nên bắt buộc chúng ta phải kiểm tra đầy đủ mọi khả năng có thể có của nó.</p>
+<h3 id="dùng-if-let-để-lấy-giá-trị-trả-về">Dùng if let để lấy giá trị trả về</h3>
+<p>Một cách khác đó là dùng <code>if let</code> để lấy ra đúng giá trị cần dùng, cả cách này lẫn cách trên đều là các ứng dụng của pattern matching trong Rust.</p>
+<pre><code>if let Some(ref c) = result {
+  println!(&quot;Kết quả là: {}&quot;, c);
+} else {
+  println!(&quot;Chia hổng có được :(&quot;);
+}
+</code></pre>
+<h3 id="dùng-unwrap-để-lấy-giá-trị-trả-về">Dùng unwrap để lấy giá trị trả về</h3>
+<p>Nếu không muốn dùng pattern matching, chúng ta có thể sử dụng một cách khác đó là <code>unwrap</code>.</p>
+<p>Unwrap tức là mở gói, giá sử hàm <code>divide(a,b)</code> trả về cho bạn một gói quà, bạn chưa biết bên trong có gì, bạn phải <code>unwrap()</code> nó để lấy giá trị ở bên trong.</p>
+<p>Có nhiều cách để unwrap một giá trị, mỗi cách đều sẽ có những cách hoạt động khác nhau, ví dụ:</p>
+<ul>
+<li><code>unwrap()</code>: Mở gói và xem giá trị bên trong, nếu giá trị bên trong là <code>None</code> thì chương trình sẽ bị <strong>panic</strong> (kiểu như háo hức mở quà ra mà ko thấy có gì bên trong, shock quá tỏi luôn)</li>
+<li><code>unwrap_or()</code>: Lần này thì bình tĩnh hơn, mở quà lấy giá trị, nếu không có gì (<code>None</code>) thì sẽ lấy giá trị truyền vào chứ không bị panic.</li>
+<li><code>unwrap_or_else()</code>: Mở gói quà ra lấy giá trị bên trong, nếu bên trong là <code>None</code> thì thực thi khối lệnh được truyền vào để lấy giá trị ra.</li>
+<li><code>unwrap_or_default()</code>: Mở quà lấy giá trị, nếu là <code>None</code> thì lấy giá trị mặc định của kiểu dữ liệu đó.</li>
+</ul>
+<pre><code>let result = divide(10.0, 0.0);
+
+let c = result.unwrap_or_default();
+println!(&quot;{}&quot;, c); // Trả về 0.0
+
+let d = result.unwrap_or(-999.0);
+println!(&quot;{}&quot;, d); // Trả về -999.0
+
+let e = result.unwrap(); // Panic :(
+</code></pre>
+<h2 id="kết-luận">Kết luận</h2>
+<p>Tóm lại, bằng cách từ bỏ việc sử dụng <code>NULL</code>, Rust cung cấp cho chúng ta rất nhiều cách khác để khiến ta khó viết code xấu (bad code, unsafe, ẩu) hơn, an toàn hơn và đảm bảo rằng không bao giờ chúng ta để lọt một trường hợp nguy hiểm nào ra ngoài. Từ đó sẽ giảm thiểu được tối đa nguy cơ xảy ra lỗi khi chạy chương trình.</p>
+<p>Và luôn luôn, sẽ có một anh bạn Rust compiler đẹp zai và khó tính luôn chực chờ bật ra để bắt nạt chúng ta mỗi khi chúng ta để lọt các trường hợp nguy hiểm.</p>
+<p>Có thể bạn sẽ thấy các cách mà Rust đưa ra để chúng ta có thể từ bỏ việc sử dụng <code>NULL</code> nó chẳng có gì mới mẻ, hay thậm chí là chúng ta có thể dễ dàng sử dụng những cách này (hoặc tương tự như những cách này) trong các ngôn ngữ khác như C/C++ hay Java, JavaScript. Điều này đúng. Vấn đề là nếu không bắt buộc thì bạn sẽ chẳng bao giờ dùng tới những cách này, mọi lập trình viên đều như vậy (trừ một vài người kĩ tính), những gì Rust làm chỉ đơn giản là bắt bẻ và khắt khe hơn để chúng ta buộc phải sử dụng những cách đó vào mà thôi.</p>
+<h2 id="đọc-thêm">Đọc thêm</h2>
+<ul>
+<li>[1]: Tony Hoare, <a href="https://www.infoq.com/presentations/Null-References-The-Billion-Dollar-Mistake-Tony-Hoare">Null References: The Billion Dollar Mistake</a>, Infoq</li>
+<li>[2]: Huy Đỗ, <a href="https://kipalog.com/posts/SQL-and-NULL">SQL and NULL</a>, Kipalog</li>
+<li>[3]: Justin Le, <a href="https://kipalog.com/posts/Co-Khong---Functional-idioms-de-dung-nullable-values-voi-functions-nhu-normal-values--Phan-1">“Có Không?” Functional idioms để dùng nullable values với functions như normal values</a>, Kipalog</li>
+<li>[4]: Neil Brown, <a href="https://lwn.net/Articles/547145/">A taste of Rust</a>, LWN.net</li>
+</ul>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h3 class="no-break">Rust in Action</h3>
+                <h1 class="no-break">Viết ứng dụng đọc tin RSS bằng Rust</h1>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Chapter</h3>
+                <h1 class="no-break">3</h1>
+            </div>
+        </div>
+         <p>Dạo này mình toàn viết bài linh tinh, lâu rồi chưa thấy viết bài kĩ thuật nào mới nên hôm nay mình viết trở lại, mất công các bạn lại bảo mình không biết code =)))</p>
+<p>Chủ đề lần này sẽ là: <strong>Viết ứng dụng đọc tin trên HackerNews</strong>, và chúng ta sẽ sử dụng <strong>Rust</strong>.</p>
+<p>Qua bài này, các bạn sẽ được làm quen với rất nhiều kĩ thuật trong Rust như:</p>
+<ul>
+<li>Làm web với framework <a href="https://rocket.rs">rocket.rs</a></li>
+<li>Tạo và sử dụng module</li>
+<li>Parse nội dung RSS dùng crate <a href="https://crates.io/crates/rss">rss</a></li>
+<li>Chuyển đổi giữa các cấu trúc dữ liệu khác nhau</li>
+<li>Kiểm soát lỗi với kiểu dữ liệu <code>Result</code></li>
+<li>Viết và chạy Unit Test với <code>cargo</code></li>
+</ul>
+<p>Giới thiệu vậy đủ rồi, giờ vô nội dung chính.</p>
+<h2 id="cụ-thể-là-làm-cái-gì-đây">Cụ thể là làm cái gì đây?</h2>
+<p>Chúng ta sẽ viết một ứng dụng đọc tin RSS từ feed của HackerNews tại địa chỉ <a href="https://news.ycombinator.com/rss">https://news.ycombinator.com/rss</a>. Việc đọc và parse nội dung RSS chúng ta sẽ sử dụng crate có tên là <a href="https://crates.io/crates/rss">rss</a>.</p>
+<p>Sau đó, chúng ta sẽ viết một giao diện web đơn giản để hiển thị danh sách các mẫu tin đã parse được. Chúng ta sẽ sử dụng framework có tên là <a href="https://rocket.rs">rocket.rs</a> cho phần này.</p>
+<p>Lý do vì sao à? Tại vì HackerNews, như các bạn đã biết, thì giao diện của nó quá xấu. Tự nhận thấy mình có thể làm xấu hơn nên mình quyết định làm thôi.</p>
+<h2 id="rồi-giờ-code-luôn-được-chưa">Rồi, giờ code luôn được chưa?</h2>
+<p>Được luôn. Lưu ý, nếu bạn chưa biết Rust là gì và chưa nắm được cách cài đặt, thì có thể tham khảo các bài viết sau trước khi chúng ta bắt đầu:</p>
+<ul>
+<li><a href="https://thefullsnack.com/posts/rust-intro.html">Rust là gì? có ăn được không</a></li>
+<li><a href="https://thefullsnack.com/posts/rust-linux.html">Cách cài đặt Rust</a></li>
+</ul>
+<h3 id="zeroend-khởi-tạo-project">Zeroend: Khởi tạo project</h3>
+<p>Vâng, mọi dự án luôn bắt đầu bằng cái bước setup project, không trật đi đâu được:</p>
+<pre><code>$ cargo new --bin hackernews-rs
+</code></pre>
+<p>Lệnh trên sử dụng <code>cargo</code> để tạo một binary project (nôm na là project chạy được - executable) có tên là <code>hackernews-rs</code>.</p>
+<h3 id="backend-thu-thập-nội-dung-từ-rss">Backend: Thu thập nội dung từ RSS</h3>
+<p>Chúng ta đi vào phần khó trước, phần dễ để dành tráng miệng lúc sau. Ông bà ta vẫn có câu <strong>vạn sự khởi đầu nan</strong> mà.</p>
+<p>Nhưng mà đâu đó giữa trong giang hồ cũng tồn tại câu nói <strong>gian nan bắt đầu nản</strong>…</p>
+<p>Mà mình thì không muốn các bạn nản, vì như vậy các bạn sẽ không đọc bài mình viết nữa :)) cho nên ở phần này, thay vì tự viết bộ parser, chúng ta sẽ sử dụng một crate có sẵn, là <code>rss</code>.</p>
+<div class="box-orange padding-15"><b>Crate</b> là tên gọi của các gois thư viện mở rộng dùng trong Rust. Giống như gem trong Ruby hoặc npm packages trong Node.js
+</div>
+
+<h4 id="cài-đặt-crate-rss">Cài đặt crate <code>rss</code></h4>
+<p>Để cài đặt crate này, chúng ta mở file <code>Cargo.toml</code> của project, tại đây bạn sẽ thấy phần khai báo <code>[dependencies]</code> đang bỏ trống. Add thêm một dòng vào ngay bên dưới, như sau:</p>
+<p><strong>Cargo.toml</strong></p>
+<pre><code class="language-rust">[dependencies]
+rss = { version = <span class="hljs-string">&quot;*&quot;</span>, features = [<span class="hljs-string">&quot;from_url&quot;</span>] }
+</code></pre>
+<p>Như vậy chúng ta đã cho <code>cargo</code> biết rằng chúng ta sẽ add một crate tên là <code>rss</code> với phiên bản mới nhất (ký hiệu dấu <code>*</code>) vào project. Phần <code>features</code> là tùy chọn để sử dụng thêm chức năng <code>from_url</code> của crate này. Đối với các loại crate khác thì bạn không nhất thiết phải có phần này.</p>
+<p>Trong thực tế, bạn nên chỉ định phiên bản cụ thể của crate khi muốn cài, để tránh việc các crate update thường xuyên kéo theo nhiều thay đổi, và bạn sẽ gặp bug phát sinh.</p>
+<p>Trong file <code>main.rs</code>, chúng ta dùng từ khóa <code>extern crate</code> để import:</p>
+<p><strong>main.rs</strong></p>
+<pre><code class="language-rust"><span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rss;
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() {
+  <span class="hljs-comment">// Make it happen, or it will never happen.</span>
+}
+</code></pre>
+<h4 id="tạo-module-đọc-tin">Tạo module đọc tin</h4>
+<p>Chúng ta sẽ tạo ra một module tên là <strong>fetch</strong>, làm nhiệm vụ đọc và parse file RSS từ bên ngoài, trả về một mảng (hoặc một vector), có các phần tử là từng bản tin.</p>
+<p>Đầu tiên, tạo một file mới trong thư mục <code>src</code> (cùng thư mục với <code>main.rs</code>), đặt tên là <code>fetch.rs</code>.</p>
+<pre><code>$ cd hackernews-rs
+$ touch src/fetch.rs
+</code></pre>
+<p>Và gõ vào đoạn code sau:</p>
+<p><strong>fetch.rs</strong></p>
+<pre><code class="language-rust"><span class="hljs-keyword">use</span> super::rss;
+<span class="hljs-keyword">use</span> rss::{Channel, Item};
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">type</span> <span class="hljs-title class_">FetchResult</span>&lt;T&gt; = <span class="hljs-type">Result</span>&lt;T, rss::Error&gt;;
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">fn</span> <span class="hljs-title function_">fetch_from</span>(url: &amp;<span class="hljs-type">str</span>) <span class="hljs-punctuation">-&gt;</span> FetchResult&lt;<span class="hljs-type">Vec</span>&lt;Item&gt;&gt; {
+  <span class="hljs-title function_ invoke__">Ok</span>(Channel::<span class="hljs-title function_ invoke__">from_url</span>(url)?.<span class="hljs-title function_ invoke__">items</span>().<span class="hljs-title function_ invoke__">to_vec</span>())
+}
+</code></pre>
+<p>Và khai báo <code>mod</code> ở trong <code>main.rs</code>:</p>
+<p><strong>main.rs</strong></p>
+<pre><code class="language-rust"><span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rss;
+
+<span class="hljs-keyword">mod</span> fetch;
+<span class="hljs-keyword">use</span> fetch::*;
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() {
+  ...
+</code></pre>
+<p>Trong đoạn code trên, chúng ta sử dụng hàm <code>rss::Channel::from_url</code> của crate <code>rss</code>, hàm này có chức năng download gói tin RSS từ một URL bên ngoài, parse nó và trả về một đối tượng kiểu <a href="https://docs.rs/rss/0.7.0/rss/struct.Channel.html"><code>rss::Channel</code></a>.</p>
+<p>Mục đích của chúng ta là lấy ra danh sách các mẫu tin. Trong một đối tượng kiểu <code>rss::Channel</code>, chúng ta có hàm <a href="https://docs.rs/rss/0.7.0/rss/struct.Channel.html#method.items"><code>items()</code></a> để lấy các mẫu tin, hàm này trả về một <code>slice</code> (có thể hiểu là mảng), và chúng ta cần chuyển nó về dạng vector với hàm <code>to_vec()</code>.</p>
+<div class="box-orange padding-15"><b>Vector</b> là một mảng (array) không cần xác định trước kích thước, và có thể tăng giảm số lượng các phần tử tùy ý.
+</div>
+
+<p>Kiểu <code>FetchResult&lt;T&gt;</code> ở đây là cách khai báo nhằm rút gọn cho cú pháp <code>Result&lt;T, E&gt;</code>.</p>
+<p>Một đối tượng kiểu <code>Result&lt;T, E&gt;</code> sẽ trả về một trong 2 giá trị tùy vào từng trường hợp:</p>
+<ul>
+<li>Giá trị kiểu <code>T</code>: Trong trường hợp lệnh thực hiện thành công</li>
+<li>Giá trị lỗi kiểu <code>E</code>: Trong trường hợp xảy ra lỗi</li>
+</ul>
+<p>Trong trường hợp này, <code>T</code> là một <code>Vec&lt;Item&gt;</code> như đã nói ở trên, <code>E</code> là <code>rss::Error</code>, là kiểu báo lỗi từ phía crate <code>rss</code>.</p>
+<div class="box-orange padding-15">
+Các bạn có thể đọc thêm bài <a href="https://kipalog.com/posts/Ban-ve-cach-xu-ly-loi-cua-Rust">Bàn về cách xử lý lỗi của Rust</a> để hiểu thêm về kiểu dữ liệu này.
+</div>
+
+<p>Bạn đã viết xong module <strong>fetch</strong>, giờ làm sao biết được nó có chạy hay không? Phải test!</p>
+<hr>
+<h4 id="test-kiểu-chày-cối">Test kiểu chày cối</h4>
+<p>Với nhiều người, họ sẽ đơn giản là vào trong <code>main.rs</code> và gõ đoạn code kiểu như thế này:</p>
+<pre><code class="language-rust"><span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rss;
+
+<span class="hljs-keyword">mod</span> fetch;
+<span class="hljs-keyword">use</span> fetch::*;
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() {
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">result</span> = <span class="hljs-title function_ invoke__">fetch_from</span>(<span class="hljs-string">&quot;https://thefullsnack.com/rss.xml&quot;</span>);
+    <span class="hljs-keyword">if</span> result.<span class="hljs-title function_ invoke__">is_ok</span>() {
+        <span class="hljs-built_in">println!</span>(<span class="hljs-string">&quot;Yay! It&#x27;s worked!&quot;</span>);
+    }
+}
+</code></pre>
+<p>Chạy thử thấy màn hình in ra dòng chữ:</p>
+<pre><code>Yay! It&#x27;s worked!
+</code></pre>
+<p>Vậy là yên tâm nó chạy được.</p>
+<p>Nếu bạn định test như cách trên thì <a href="http://www.nhaccuatui.com/bai-hat/xin-anh-dung-emily-ft-lil-knight-ft-justatee.wcDv6N6l4k.html">xin đừng</a>! Đây không phải là Unit Test, mà đây cũng không phải là cách để test, vì giờ nó chạy được, ai biết được ít hôm nữa bạn sửa code thì nó có còn chạy được không? Vì hàm <code>main</code> đâu phải là nơi để giữ đoạn code test này của bạn mãi mãi? Đúng hêm?</p>
+<h4 id="viết-test-cases">Viết test cases</h4>
+<p>Nếu bạn chưa biết viết test trong Rust như thế nào, có thể tham khảo bài <a href="https://thefullsnack.com/posts/rust-testing.html">Cách viết test trong Rust the idiomatic way</a>.</p>
+<p>Đối với hàm <code>fetch_from</code> ở trên, chúng ta sẽ có tầm 3 đến 4 test cases, cụ thể là:</p>
+<ul>
+<li><strong>Fetch từ một link RSS hợp lệ có trả về kết quả hợp lệ hay không?</strong> Để test case này, ta gọi hàm <code>fetch_from</code> với tham số là một liên kết RSS hợp lệ.</li>
+<li><strong>Fetch từ một link không tồn tại có trả về thông báo lỗi hay không?</strong> Để test case này, ta truyền vào một URL không caa thật.</li>
+<li><strong>Fetch từ một link không phải là RSS thì có trả về thông báo lỗi hay không?</strong> Để test case này, ta truyền vào một URL chứa nội dung không phải RSS, ví dụ như là một nội dung JSON.</li>
+</ul>
+<p>Ở cuối file <code>fetch.rs</code>, ta thêm vào 3 hàm test từ 3 case ở trên:</p>
+<p><strong>fetch.rs</strong></p>
+<pre><code class="language-rust">...
+
+<span class="hljs-meta">#[test]</span>
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">test_fetch_from_valid_url</span>() {
+  <span class="hljs-keyword">let</span> <span class="hljs-variable">result</span> = <span class="hljs-title function_ invoke__">fetch_from</span>(<span class="hljs-string">&quot;https://thefullsnack.com/rss.xml&quot;</span>);
+  <span class="hljs-built_in">assert!</span>(result.<span class="hljs-title function_ invoke__">is_ok</span>());
+  <span class="hljs-built_in">assert!</span>(result.<span class="hljs-title function_ invoke__">unwrap</span>().<span class="hljs-title function_ invoke__">len</span>() &gt; <span class="hljs-number">0</span>);
+}
+
+<span class="hljs-meta">#[test]</span>
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">test_fetch_from_invalid_url</span>() {
+  <span class="hljs-keyword">let</span> <span class="hljs-variable">result</span> = <span class="hljs-title function_ invoke__">fetch_from</span>(<span class="hljs-string">&quot;https://where-superman-meet-wonderwoman.com/and-they-got-married.xml&quot;</span>);
+  <span class="hljs-built_in">assert!</span>(result.<span class="hljs-title function_ invoke__">is_err</span>());
+}
+
+<span class="hljs-meta">#[test]</span>
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">test_fetch_from_invalid_rss_url</span>() {
+  <span class="hljs-keyword">let</span> <span class="hljs-variable">result</span> = <span class="hljs-title function_ invoke__">fetch_from</span>(<span class="hljs-string">&quot;https://xkcd.com/info.0.json&quot;</span>);
+  <span class="hljs-built_in">assert!</span>(result.<span class="hljs-title function_ invoke__">is_err</span>());
+}
+</code></pre>
+<p>Chạy test với lệnh:</p>
+<pre><code>cargo test
+</code></pre>
+<p>Kết quả sẽ như thế này, cả 3 test case đều pass hết, chứng tỏ người code rất xịn:</p>
+<pre><code class="language-cpp">running <span class="hljs-number">3</span> tests
+test fetch::test_fetch_from_invalid_url ... ok
+test fetch::test_fetch_from_invalid_rss_url ... ok
+test fetch::test_fetch_from_valid_url ... ok
+
+test result: ok. <span class="hljs-number">3</span> passed; <span class="hljs-number">0</span> failed; <span class="hljs-number">0</span> ignored; <span class="hljs-number">0</span> measured; <span class="hljs-number">0</span> filtered out
+</code></pre>
+<p>Giờ thì chúng ta có thể đảm bảo module <strong>fetch</strong> hoạt động chính xác rồi.</p>
+<h4 id="chuyển-danh-sách-bản-tin-thành-json">Chuyển danh sách bản tin thành JSON</h4>
+<p>Để lấy danh sách các tin mới nhất từ <strong>HackerNews</strong>, chúng ta gọi hàm <code>fetch_from</code> với tham số là bản tin RSS của trang này:</p>
+<pre><code>let result = fetch_from(&quot;https://news.ycombinator.com/rss&quot;);
+</code></pre>
+<p>Việc tiếp theo, chúng ta sẽ viết phần frontend để hiển thị nội dung này ra trên nền web. Nhưng trước tiên, ta cần chuyển danh sách bản tin dạng <code>Vec&lt;Item&gt;</code> này thành nội dung định dạng JSON.</p>
+<p>Việc chuyển đổi, chúng ta sẽ dùng một crate tên là <code>serde</code>. Để cài crate này, mở file <code>Cargo.toml</code> và thêm vào phần <code>[dependencies]</code>:</p>
+<p><strong>Cargo.toml</strong></p>
+<pre><code>...
+
+serde = &quot;1.0.11&quot;
+serde_derive = &quot;1.0.11&quot;
+serde_json = &quot;1.0.2&quot;
+</code></pre>
+<p>Trong <code>main.rs</code>, dùng từ khóa <code>extern crate</code> để import các package của <code>serde</code> vào:</p>
+<pre><code class="language-rust"><span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> serde;
+<span class="hljs-meta">#[macro_use]</span> <span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> serde_derive;
+<span class="hljs-meta">#[macro_use]</span> <span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> serde_json;
+</code></pre>
+<p><code>#[macro_use]</code> ở đây gọi là <code>attribute</code>, và attribute này cho <code>cargo</code> biết chúng ta muốn sử dụng các <code>macro</code> được khai báo bên trong crate này.</p>
+<div class="box-orange padding-15"><b>Macro</b> là một chức năng của Rust cho phép bạn tạo ra các loại cú pháp tự chọn, giúp code tiện lợi hơn, có thể xem chi tiết <a href="https://doc.rust-lang.org/1.7.0/book/macros.html">tại đây</a>.
+</div>
+
+<p>Kiểu <a href="https://docs.rs/rss/0.5.1/rss/struct.Item.html">rss::Item</a> chứa rất nhiều trường mà chúng ta không cần dùng tới, trên thực tế, chúng ta chỉ cần các thông tin như <code>title</code>, <code>link</code>, <code>description</code> của một <code>Item</code>, vì thế, chúng ta nên tạo một kiểu dữ liệu khác để chức các thông tin cần trích xuất.</p>
+<p>Cụ thể ở đây ta tạo một struct mới tên là <code>RSSItem</code>. Thêm đoạn code sau vào <code>fetch.rs</code>:</p>
+<p><strong>fetch.rs</strong></p>
+<pre><code class="language-rust"><span class="hljs-meta">#[derive(Serialize)]</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">RSSItem</span> {
+    <span class="hljs-keyword">pub</span> title: <span class="hljs-type">String</span>,
+    <span class="hljs-keyword">pub</span> link: <span class="hljs-type">String</span>,
+    <span class="hljs-keyword">pub</span> description: <span class="hljs-type">String</span>,
+    <span class="hljs-keyword">pub</span> pub_date: <span class="hljs-type">String</span>,
+}
+
+<span class="hljs-keyword">impl</span> <span class="hljs-title class_">From</span>&lt;Item&gt; <span class="hljs-keyword">for</span> <span class="hljs-title class_">RSSItem</span> {
+    <span class="hljs-keyword">fn</span> <span class="hljs-title function_">from</span>(item: Item) <span class="hljs-punctuation">-&gt;</span> <span class="hljs-keyword">Self</span> {
+        RSSItem {
+            title: item.<span class="hljs-title function_ invoke__">title</span>().<span class="hljs-title function_ invoke__">unwrap_or_default</span>().<span class="hljs-title function_ invoke__">to_owned</span>(),
+            link: item.<span class="hljs-title function_ invoke__">link</span>().<span class="hljs-title function_ invoke__">unwrap_or_default</span>().<span class="hljs-title function_ invoke__">to_owned</span>(),
+            description: item.<span class="hljs-title function_ invoke__">description</span>().<span class="hljs-title function_ invoke__">unwrap_or_default</span>().<span class="hljs-title function_ invoke__">to_owned</span>(),
+            pub_date: item.<span class="hljs-title function_ invoke__">pub_date</span>().<span class="hljs-title function_ invoke__">unwrap_or_default</span>().<span class="hljs-title function_ invoke__">to_owned</span>(),
+        }
+    }
+}
+</code></pre>
+<p>Trong đoạn code trên, ta tạo ra một struct tên là <code>RSSItem</code>, kế thừa thuộc tính <code>Serialize</code> của <code>serde</code>, để thư viện này dễ dàng chuyển đổi (convert) nó về định dạng JSON sau này.</p>
+<p>Từ khóa <code>impl</code> dùng để implement một <code>trait</code> cho một kiểu dữ liệu bất kỳ, ở đây là chúng ta implement trait có tên là <code>From&lt;T&gt;</code> cho <code>RSSItem</code>.</p>
+<div class="box-orange padding-15">
+<b>Trait</b> là một tập hợp các methods được định nghĩa sẵn. Có thể được impl (implement) cho một kiểu dữ liệu bất kỳ. Sau khi implement, kiểu dữ liệu này sẽ mang toàn bộ các methods của trait đó. Xem ví dụ chi tiết <a href="https://rustbyexample.com/trait.html">tại RustByExample</a>.
+</div>
+
+<p>Trait <code>From&lt;T&gt;</code> thực hiện việc ép kiểu (casting) từ kiểu dữ liệu <code>T</code> sang kiểu dữ liệu được implement, mà ở đây chính là <code>RSSItem</code>.</p>
+<p>Tiếp theo, chúng ta thay đổi hàm <code>fetch_from</code> một tí, để trả về một vector kiểu <code>RSSItem</code> thay vì <code>rss::Item</code>:</p>
+<p><strong>fetch.rs</strong></p>
+<pre><code class="language-rust"><span class="hljs-keyword">pub</span> <span class="hljs-keyword">fn</span> <span class="hljs-title function_">fetch_from</span>(url: &amp;<span class="hljs-type">str</span>) <span class="hljs-punctuation">-&gt;</span> FetchResult&lt;<span class="hljs-type">Vec</span>&lt;RSSItem&gt;&gt; {
+    <span class="hljs-title function_ invoke__">Ok</span>(Channel::<span class="hljs-title function_ invoke__">from_url</span>(url)?
+                .<span class="hljs-title function_ invoke__">items</span>()
+                .<span class="hljs-title function_ invoke__">into_iter</span>()
+                .<span class="hljs-title function_ invoke__">map</span>(|item| RSSItem::<span class="hljs-title function_ invoke__">from</span>(item.<span class="hljs-title function_ invoke__">clone</span>()))
+                .<span class="hljs-title function_ invoke__">collect</span>())
+}
+</code></pre>
+<p>Ở đây chúng ta dùng hàm <code>into_iter()</code> để chuyển vector <code>rss::Item</code> về dạng có thể duyệt qua được. Sau đó dùng hàm <code>map()</code> để xử lý chuyển đổi từng phần tử kiểu <code>rss::Item</code> sang kiểu <code>RSSItem</code>, nhờ vào trait <code>From&lt;T&gt;</code> mà chúng ta đã implement ở trên.</p>
+<p>Và cuối cùng, để đảm bảo rằng sau khi thay đổi, hàm <code>fetch_from</code> vẫn hoạt động bình thường, và cho kết quả đúng, ta thêm vào một test case mới:</p>
+<p><strong>fetch.rs</strong></p>
+<pre><code class="language-rust">...
+
+<span class="hljs-meta">#[test]</span>
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">test_fetch_is_convertable_to_json</span>() {
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">items</span> = <span class="hljs-title function_ invoke__">fetch_from</span>(<span class="hljs-string">&quot;https://thefullsnack.com/rss.xml&quot;</span>);
+    <span class="hljs-built_in">assert!</span>(items.<span class="hljs-title function_ invoke__">is_ok</span>());
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">json_data</span> = json!({ <span class="hljs-string">&quot;items&quot;</span>: items.<span class="hljs-title function_ invoke__">unwrap</span>() });
+    <span class="hljs-built_in">assert!</span>(json_data[<span class="hljs-string">&quot;items&quot;</span>].<span class="hljs-title function_ invoke__">is_array</span>());
+    <span class="hljs-built_in">assert!</span>(json_data[<span class="hljs-string">&quot;items&quot;</span>][<span class="hljs-number">0</span>].<span class="hljs-title function_ invoke__">is_object</span>());
+    <span class="hljs-built_in">assert!</span>(json_data[<span class="hljs-string">&quot;items&quot;</span>][<span class="hljs-number">0</span>][<span class="hljs-string">&quot;title&quot;</span>].<span class="hljs-title function_ invoke__">is_string</span>());
+}
+</code></pre>
+<p>Ở đây chúng ta sử dụng macro <code>json!()</code> của crate <code>serde_json</code> để chuyển một đối tượng thành một nội dung kiểu <code>serde_json::value::Value</code>. Các bạn thử đọc <a href="https://docs.serde.rs/serde_json/value/enum.Value.html">document</a> của đối tượng này và tự suy luận xem vì sao lại viết hàm test ở trên như thế nhé.</p>
+<p>Giờ chạy test thôi:</p>
+<pre><code class="language-cpp">running <span class="hljs-number">4</span> tests
+test fetch::test_fetch_invalid_url ... ok
+test fetch::test_fetch_invalid_rss_feed ... ok
+test fetch::test_fetch_is_convertable_to_json ... ok
+test fetch::test_fetch_valid_rss_url ... ok
+
+test result: ok. <span class="hljs-number">4</span> passed; <span class="hljs-number">0</span> failed; <span class="hljs-number">0</span> ignored; <span class="hljs-number">0</span> measured; <span class="hljs-number">0</span> filtered out
+</code></pre>
+<p>Như vậy có nghĩa là hàm <code>fetch_from</code> vẫn hoạt động tốt sau khi bị thay đổi, và đến đây thì có thể yên tâm bước qua giai đoạn tiếp theo được rồi.</p>
+<h3 id="frontend-hiển-thị-bảng-tin">Frontend: Hiển thị bảng tin</h3>
+<p>Nào, bây giờ chúng ta bắt tay vào phần frontend thôi.</p>
+<p>Chúng ta sẽ sử dụng một framework có tên là <a href="https://rocket.rs">rocker.rs</a>, đây là một framework gọn nhẹ, với chức năng chính là routing, tuy nhiên có thể mở rộng ra với <em>“rất nhiều chức năng phụ thêm, mà nếu không cần dùng thì bạn có thể không cần cài”</em>, đoạn in nghiên cũng là nguyên văn lời dụ dỗ của anh Sergio, tác giả Rocket.rs, nói với mình khi mình lên IRC hỏi tìm một web framework gọn nhẹ cho Rust.</p>
+<div class="box-orange padding-15">
+Cộng đồng Rust quốc tế hoạt động rất mạnh trên các <a href="https://www.rust-lang.org/en-US/community.html#irc-channels">IRC channels</a>, với một lượng thành viên online thường trực rất đông đảo. Ngoài ra còn có hẳn một team từ Mozilla được trả lương để online và chat trên đó. Nên bất kì câu hỏi gì cũng được giải đáp ngay lập tức trong vòng chưa đầy 1 phút.
+</div>
+
+<h4 id="cài-đặt-rocketrs">Cài đặt rocket.rs</h4>
+<p>Để cài đặt <code>rocket.rs</code>, chúng ta cài như khi cài một crate mới ở các bước trên.</p>
+<p><strong>Cargo.toml</strong></p>
+<pre><code>[dependencies]
+...
+
+rocket = &quot;0.3.0&quot;
+rocket_codegen = &quot;0.3.0&quot;
+
+[dependencies.rocket_contrib]
+default-features = false
+features = [&quot;handlebars_templates&quot;]
+</code></pre>
+<p>Các crate cần cài cho framework này gồm có: <code>rocket</code>, <code>rocket_codegen</code> và <code>rocket_contrib</code>. Riêng gói <code>rocket_contrib</code> chúng ta chỉ dùng chức năng <code>handlebars_templates</code>.</p>
+<h4 id="làm-quen-với-rocketrs">Làm quen với rocket.rs</h4>
+<p>Tiếp theo, mở file <code>main.rs</code> và gõ vào đoạn code như sau:</p>
+<p><strong>main.rs</strong></p>
+<pre><code class="language-rust"><span class="hljs-meta">#![feature(plugin)]</span>
+<span class="hljs-meta">#![plugin(rocket_codegen)]</span>
+<span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rocket;
+<span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rocket_contrib;
+
+<span class="hljs-meta">#[get(<span class="hljs-string">&quot;/&quot;</span>)]</span>
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">index</span>() <span class="hljs-punctuation">-&gt;</span> &amp;<span class="hljs-symbol">&#x27;static</span> <span class="hljs-type">str</span> {
+    <span class="hljs-string">&quot;Wheresoever you go, go with all your heart.&quot;</span>
+}
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() {
+    rocket::<span class="hljs-title function_ invoke__">ignite</span>()
+        .<span class="hljs-title function_ invoke__">mount</span>(<span class="hljs-string">&quot;/&quot;</span>, routes![index])
+        .<span class="hljs-title function_ invoke__">launch</span>();
+}
+</code></pre>
+<p>Đoạn code trên tạo ra một web server đơn giản, có 1 route là <code>/</code>, được thiết lập bằng thuộc tính <code>#[get(&quot;/&quot;)]</code>, chính là trang chủ, và được handle bằng hàm <code>index()</code>, hàm này trả về một chuỗi <code>&amp;str</code>.</p>
+<div class="box-orange padding-15">
+Từ khóa <code>'static</code> đặt trong dòng khai báo <code>&'static str</code> được gọi là <b>lifetime</b> của một biến. Biểu diễn phạm vi tồn tại của một biến đó trong hàm. Trong trường hợp này biến đó mang kiểu <code>&str</code>.
+
+<p>Trong Rust, <code>'static</code> là lifetime dài nhất, và tồn tại cho đến khi chương trình kết thúc.</p>
+</div>
+
+<p>Bây giờ chúngta thử chạy server này bằng lệnh:</p>
+<pre><code>cargo run
+</code></pre>
+<p>Output hiện ra trên màn hình sẽ như thế này:</p>
+<pre><code>  Configured for development.
+    =&gt; address: localhost
+    =&gt; port: 8000
+    =&gt; log: normal
+    =&gt; workers: 8
+    =&gt; secret key: generated
+    =&gt; limits: forms = 32KiB
+    =&gt; tls: disabled
+  Mounting &#x27;/&#x27;:
+    =&gt; GET /
+  Rocket has launched from http://localhost:8000
+</code></pre>
+<p>Khi truy cập vào địa chỉ <code>http://localhost:8000</code> bạn sẽ thấy in ra trên màn hình dòng chữ:</p>
+<pre><code class="language-text">Wheresoever you go, go with all your heart.
+</code></pre>
+<p>Vậy là chúng ta đã làm được một trang web đơn giản bằng <code>rocket.rs</code> rồi. Bây giờ chúng ta tiếp tục build ứng dụng HackerNews thôi.</p>
+<h4 id="build-hackernews-frontend">Build HackerNews Frontend</h4>
+<p>Để cho đơn giản, thì ứng dụng của chúng ta chỉ cần 1 route duy nhất, đó là <code>/</code>, và ngay khi truy cập vào trang chủ thì chúng ta sẽ hiển thị danh sách các bản tin luôn.</p>
+<p>Đầu tiên, chúng ta thay đổi hàm <code>main</code> một chút như sau:</p>
+<p><strong>main.rs</strong></p>
+<pre><code class="language-rust"><span class="hljs-meta">#![feature(plugin)]</span>
+<span class="hljs-meta">#![plugin(rocket_codegen)]</span>
+<span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rss;
+<span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rocket;
+<span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> rocket_contrib;
+<span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> serde;
+<span class="hljs-meta">#[macro_use]</span> <span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> serde_derive;
+<span class="hljs-meta">#[macro_use]</span> <span class="hljs-keyword">extern</span> <span class="hljs-keyword">crate</span> serde_json;
+
+<span class="hljs-keyword">mod</span> fetch;
+
+<span class="hljs-keyword">use</span> fetch::*;
+<span class="hljs-keyword">use</span> rocket_contrib::Template;
+
+<span class="hljs-keyword">const</span> RSS_URL: &amp;<span class="hljs-type">str</span> = <span class="hljs-string">&quot;https://news.ycombinator.com/rss&quot;</span>;
+
+<span class="hljs-meta">#[get(<span class="hljs-string">&quot;/&quot;</span>)]</span>
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">index</span>() <span class="hljs-punctuation">-&gt;</span> Template {
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">news</span> = <span class="hljs-title function_ invoke__">fetch_from</span>(RSS_URL)
+        .<span class="hljs-title function_ invoke__">ok</span>()
+        .<span class="hljs-title function_ invoke__">expect</span>(<span class="hljs-string">&quot;Could not read RSS&quot;</span>);
+    Template::<span class="hljs-title function_ invoke__">render</span>(<span class="hljs-string">&quot;index&quot;</span>, &amp;news)
+}
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() {
+    rocket::<span class="hljs-title function_ invoke__">ignite</span>()
+        .<span class="hljs-title function_ invoke__">mount</span>(<span class="hljs-string">&quot;/&quot;</span>, routes![index])
+        .<span class="hljs-title function_ invoke__">attach</span>(Template::<span class="hljs-title function_ invoke__">fairing</span>())
+        .<span class="hljs-title function_ invoke__">launch</span>();
+}
+</code></pre>
+<p>Trong đoạn code trên, ta khai báo một hằng <code>RSS_URL</code> để lưu địa chỉ RSS cần parse. Và sử dụng hàm <code>fetch_from</code> đã tạo ra trong module <code>fetch</code> để lấy về danh sách các mẫu tin.</p>
+<p>Ta cũng sử dụng một cấu trúc dữ liệu mới là <code>rocket_contrib::Template</code>, khi một handler function trả về kiểu dữ liệu này, thì <code>rocket.rs</code> sẽ tự động render file template tương ứng ra màn hình.</p>
+<p>Tiếp đến ta tạo file template. Ở trong thư mục <code>hackernews-rs</code>, tạo một thư mục tên <code>templates</code></p>
+<pre><code>$ mkdir templates
+$ cd templates
+</code></pre>
+<hr>
+<p>Trong thư mục này, ta tạo một file <code>.html.hbs</code>, là file template của <code>Handlerbars</code>:</p>
+<pre><code>$ touch index.html.hbs
+</code></pre>
+<p>Nội dung file <code>index.html.hbs</code> như sau:</p>
+<p><strong>index.html.hbs</strong></p>
+<pre><code class="language-html"><span class="hljs-tag">&lt;<span class="hljs-name">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">title</span>&gt;</span>Make HackerNews Great Again!<span class="hljs-tag">&lt;/<span class="hljs-name">title</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">style</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">style</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">head</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">body</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">ul</span>&gt;</span>
+      {{#each this }}
+      <span class="hljs-tag">&lt;<span class="hljs-name">li</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;item&quot;</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;title&quot;</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">a</span> <span class="hljs-attr">href</span>=<span class="hljs-string">&quot;{{ link }}&quot;</span>&gt;</span>{{ title }}<span class="hljs-tag">&lt;/<span class="hljs-name">a</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;description&quot;</span>&gt;</span>{{{ description }}}<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;metadata&quot;</span>&gt;</span>{{ pub_date }}<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+      <span class="hljs-tag">&lt;/<span class="hljs-name">li</span>&gt;</span>
+      {{/each}}
+    <span class="hljs-tag">&lt;/<span class="hljs-name">ul</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">body</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">html</span>&gt;</span>
+</code></pre>
+<p>Hàm <code>Template:render</code> thực hiện việc đọc file template (ở đây là <code>index.html.hbs</code>) đồng thời truyền vào một biến, gọi là <strong>context</strong>, từ đó ta có thể truy xuất biến nào thông qua đối tượng <code>this</code> trong file template.</p>
+<p>Ở trong file <code>index.html.hbs</code> trên, ta có <strong>context</strong> chính là đối tượng <strong>news</strong>, là một Vector các bản tin <code>RSSItem</code>, truy xuất thông qua đối tượng <code>this</code>. Hàm <code>#each</code> có tác dụng duyệt qua từng phần tử của vector này và với mỗi phần tử, thì in đoạn nội dung bên trong (thẻ <code>&lt;li&gt;</code>) ra màn hình.</p>
+<p>Đến đay bạn có thể chạy thử để xem kết quả, bằng lệnh:</p>
+<pre><code>cargo run
+</code></pre>
+<p>Khi truy cap vào địa chỉ <code>http://localhost:8000</code>, danh sách các mẫu tin từ HackerNews sẽ hiện ra. Tuy nhiên giao diện lúc này vẫn còn khá xấu. Ta có thể thay đổi file <code>index.html.hbs</code> để chỉnh sửa giao diện lại một tí:</p>
+<p><strong>index.html.hbs</strong></p>
+<pre><code class="language-html"><span class="hljs-tag">&lt;<span class="hljs-name">html</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">head</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">title</span>&gt;</span>Make HackerNews Great Again!<span class="hljs-tag">&lt;/<span class="hljs-name">title</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">link</span> <span class="hljs-attr">href</span>=<span class="hljs-string">&quot;https://fonts.googleapis.com/css?family=PT+Sans&quot;</span>
+    <span class="hljs-attr">rel</span>=<span class="hljs-string">&quot;stylesheet&quot;</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">style</span>&gt;</span><span class="language-css">
+    <span class="hljs-selector-tag">html</span> {
+      <span class="hljs-attribute">padding</span>: <span class="hljs-number">0</span>; <span class="hljs-attribute">margin</span>: <span class="hljs-number">0</span>;
+    }
+    <span class="hljs-selector-tag">body</span> {
+      <span class="hljs-attribute">font-family</span>: <span class="hljs-string">&#x27;PT Sans&#x27;</span>, sans-serif;
+      <span class="hljs-attribute">font-size</span>: <span class="hljs-number">16px</span>;
+      <span class="hljs-attribute">line-height</span>: <span class="hljs-number">22px</span>;
+      <span class="hljs-attribute">display</span>: flex;
+      <span class="hljs-attribute">flex-direction</span>: row;
+      <span class="hljs-attribute">padding</span>: <span class="hljs-number">0</span>; <span class="hljs-attribute">margin</span>: <span class="hljs-number">0</span>;
+    }
+
+    <span class="hljs-selector-tag">ul</span> {
+      <span class="hljs-attribute">margin</span>: <span class="hljs-number">0</span>; <span class="hljs-attribute">padding</span>: <span class="hljs-number">10px</span>;
+      <span class="hljs-attribute">list-style</span>: none;
+      <span class="hljs-attribute">counter-reset</span>: news-item-counter;
+      <span class="hljs-attribute">flex-basis</span>: <span class="hljs-number">400px</span>;
+    }
+
+    <span class="hljs-selector-tag">ul</span> <span class="hljs-selector-tag">li</span> {
+      <span class="hljs-attribute">padding</span>: <span class="hljs-number">10px</span> <span class="hljs-number">10px</span> <span class="hljs-number">10px</span> <span class="hljs-number">30px</span>;
+      <span class="hljs-attribute">position</span>: relative;
+      <span class="hljs-attribute">margin</span>: <span class="hljs-number">0</span>;
+      <span class="hljs-attribute">cursor</span>: pointer;
+    }</span>
+</code></pre>
+<pre><code>    ul li:before {
+      content: counter(news-item-counter);
+      counter-increment: news-item-counter;
+      position: absolute;
+      top: 10px; left: 0;
+      font-size: 0.8em;
+      text-align: center;
+      line-height: 24px;
+      width: 24px; height: 24px;
+      background: #27ae60;
+      color: #FFF;
+      font-weight: bold;
+      border-radius: 3px;
+    }
+
+    ul li a {
+      text-decoration: none;
+      font-weight: bold;
+      color: #27ae60;
+    }
+
+    .metadata {
+      font-size: 0.8em;
+    }
+
+    #frame {
+      flex: 1;
+      border: none;
+      border-left: 1px solid #27ae60;
+    }
+    &lt;/style&gt;
+  &lt;/head&gt;
+  &lt;script&gt;
+  const loadPage = (url) =&gt; {
+    let frame = document.getElementById(&quot;frame&quot;);
+    frame.src = url;
+  }
+  &lt;/script&gt;
+  &lt;body&gt;
+    &lt;ul&gt;
+      {{#each this }}
+      &lt;li class=&quot;item&quot; onclick=&quot;loadPage(&#x27;{{ link }}&#x27;)&quot;&gt;
+        &lt;div class=&quot;title&quot;&gt;&lt;a href=&quot;{{ link }}&quot;&gt;{{ title }}&lt;/a&gt;&lt;/div&gt;
+        &lt;div class=&quot;metadata&quot;&gt;{{ pub_date }} - {{{ description }}}&lt;/div&gt;
+      &lt;/li&gt;
+      {{/each}}
+    &lt;/ul&gt;
+    &lt;iframe id=&quot;frame&quot;&gt;&lt;/iframe&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Ở đoạn HTML trên, chúng ta chia màn hình ra thành 2 phần, một phần bên trái hiển thị danh sách các mẫu tin và một phần bên phải hiển thị nội dung của mẫu tin đó (sử dụng <code>iframe</code>). Giao diện sẽ như thế này:</p>
+<p><img src="img/rust-hackernews.png" alt=""></p>
+<p>Vậy là chúng ta đã hoàn thành ứng dụng đọc tin HackerNews rồi :D</p>
+<p>Giải pháp dùng <code>iframe</code> này chưa thực sự tối ưu, và vẫn còn khá nhiều việc cần phải làm như là loading bar hay handle lỗi khi không thể load được nội dung bài báo vào <code>iframe</code>.</p>
+<p>Tuy nhiên sứ mạng của bài viết này - đó là hướng dẫn làm một ứng dụng web từ A-Z bằng Rust - thì đã kết thúc, cho nên mình sẽ phủi tay và việc fix bug, tối ưu hóa mình sẽ không viết tiếp nữa (dài quá lười thôi, không có gì đâu).</p>
+ 
+    </body>
+</html>
