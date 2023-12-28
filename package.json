@@ -4,7 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "run": "ts-node main.ts"
+    "start": "ts-node main.ts"
   },
   "repository": {
     "type": "git",
@@ -18,9 +18,11 @@
   "homepage": "https://github.com/huytd/book-builder#readme",
   "dependencies": {
     "@types/marked": "^4.0.3",
+    "@types/node": "^18.11.10",
     "front-matter": "^4.0.2",
     "highlight.js": "^11.5.1",
     "marked": "^4.0.15",
-    "ts-node": "^10.7.0"
+    "ts-node": "^10.7.0",
+    "typescript": "^4.9.3"
   }
 }
