@@ -1,0 +1,27 @@
+INSTRUCTION
+-----------
+
+This repository is for Advent of Sharing authors to collaborate to create the online/PDF bundle for all the AoS entries.
+
+If you are not one of the authors, it's best to stay back and wait for the final release of the magazine.
+
+If you are one of the author, do the following:
+
+  1. Clone this repository to your local machine
+  2. Add your entry to the ./data folder. The file name should be "day-<n>.md" where n is the day of your entry.
+  3. Run the preview server with:
+  	
+	$ cd public && npx run serve
+
+     You should have the web app running at http://localhost:3000
+  4. Run the build script (in the project's root folder) with:
+	
+	$ npm run build
+
+     The built content should be present in the ./public folder.
+     As you working on your article, re-run the build script and hit F5 to see the updated content in the web app.
+     (Yes, there is no hot reload or whatever the hell you think in this repo)
+
+Finally, if you already happy with your entry, create a PR and wait until I come back from the vacation :v
+
+P/S: The npm command does not work? Did I mentioned the "npm install" command?
