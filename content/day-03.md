@@ -1,6 +1,6 @@
 ---
 title: Tiny trees, in tiny pots 🌲
-topic: Hobby, Plant
+topic: Hobbies, Plant
 author: Bần làm vườn
 ---
 

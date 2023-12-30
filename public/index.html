@@ -155,7 +155,7 @@ const Component = () =&gt; {
             <div class="chapter-name">
                 <h1 class="no-break">Tiny trees, in tiny pots 🌲</h1>
                 <div class="no-break"><i>Tác giả:</i> Bần làm vườn</div>
-                <div class="no-break"><i>Chủ đề:</i> Hobby, Plant</div>
+                <div class="no-break"><i>Chủ đề:</i> Hobbies, Plant</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
@@ -170,6 +170,256 @@ Bonsai is as cheap and interesting as you want it to be</p>
 <h2 id="how-to-start-making-a-bonsai">How to start making a bonsai?</h2>
 <p>Khi làm bonsai người ta sẽ xuất phát từ hai hướng. Một là họ sẽ trồng từ cây con, bắt đầu uốn nắn nó ngay từ nhỏ. Hai là họ sẽ tìm một gốc cây đẹp, trong tự nhiên, hoặc là mua hay xin lại từ ai đó, và họ sẽ tạo dáng lại phần nhánh. Phương án một rất dễ và rất tiết kiệm để bắt đầu, và mình cũng recommend mọi người đi theo hướng đó. Tất nhiên là nó sẽ mất nhiều thời gian hơn, but hey, it’s part of the journey.:spiral_note_pad: Mình gửi ở đây list một vài loài cây thường được dùng làm bonsai và phù hợp với khí hậu VN:</p>
 <p>…</p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break">border-radius thực sự là gì?</h1>
+                <div class="no-break"><i>Tác giả:</i> ZeroX-DG</div>
+                <div class="no-break"><i>Chủ đề:</i> Front End, CSS</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">4</h1>
+            </div>
+        </div>
+         <p>Các bạn đọc tựa xong sẽ nghĩ: “ơ ông này vớ vẩn, border-radius để bo góc mấy cái div chứ làm gì?”</p>
+<p>Hmmm nhưng bạn đã bao giờ tự hỏi, cái giá trị <code>18px</code> hay <code>50%</code> được pass vào <code>border-radius</code> nghĩa là gì?</p>
+<p>Thực chất <code>border-radius</code> là một shorthand property cho 4 CSS properties khác. Nên khi viết:</p>
+<pre><code class="language-css"><span class="hljs-attribute">border-radius</span>: <span class="hljs-number">18px</span>;
+</code></pre>
+<p>Bạn đang viết tắt cho:</p>
+<pre><code class="language-css"><span class="hljs-attribute">border-top-left-radius</span>: <span class="hljs-number">18px</span>;
+<span class="hljs-attribute">border-top-right-radius</span>: <span class="hljs-number">18px</span>;
+<span class="hljs-attribute">border-bottom-left-radius</span>: <span class="hljs-number">18px</span>;
+<span class="hljs-attribute">border-bottom-right-radius</span>: <span class="hljs-number">18px</span>;
+</code></pre>
+<p>4 properties này đại diện cho 4 góc của 1 element box (top left, top right, bottom left và bottom right), và browser dùng cái value bạn đưa vào để vẽ 1 đường con kết nối 2 cạnh của góc cần bo. Làm thế nào á? Câu trả lời nằm trong cái tên radius.</p>
+<p>Radius là bán kính hình tròn. Khi vẽ cái đường cong này, browser sẽ dùng cái bán kính đó để tính ra toạ độ của tâm hình tròn:</p>
+<pre><code>x_circle = x_div_corner + border_radius (or -border_radius if it&#x27;s the right edge)
+y_circle = y_div_corner + border_radius (or -border_radius if it&#x27;s the bottom edge)
+</code></pre>
+<p>Sau đó vẽ đường cong dùng cái toạ độ trên, và thêm vài thứ linh tinh như tuỳ vào góc là góc bên phải hay bên trái, trên hay dưới để vẽ cái đường cong theo chiều đồng hồ hoặc ngược etc (xem hình minh hoạ).</p>
+<p>Đó là lý do khi <code>border-radius</code> là <code>50%</code> và element box của bạn có width và height bằng nhau (tạo ra hình vuông) thì browser sẽ xác định tâm hình tròn ở giữa vị trí 50% width và 50% height tức là ở giữa hình vuông và kẻ 4 đường cong cho 4 góc tạo thành hình tròn.</p>
+<p>Tuy nhiên <code>border-radius</code> không chấp nhận giá trị &lt; 0 nên bạn không thể dùng số âm để bo góc ngược vô trong :laughing:</p>
+<p>Thế nhưng <code>border-radius</code> thực chất có thể chấp nhận tới 2 giá trị:</p>
+<pre><code class="language-css"><span class="hljs-attribute">border-top-left-radius</span>: <span class="hljs-number">10px</span> <span class="hljs-number">20px</span>;
+</code></pre>
+<p>Đây là vì radius không hẳn là bán kính của hình tròn mà là hình ellipse nên bạn có thể dùng 2 giá trị radius cho chiều thẳng và chiều ngang khác nhau (xem hình minh hoạ)</p>
+<p><strong>Hình minh hoạ:</strong></p>
+<p><img src="img/image1.png" alt="">
+<img src="img/image2.png" alt="">
+<img src="img/image3.png" alt=""></p>
+<p><strong>Đọc thêm:</strong></p>
+<ul>
+<li><code>border-radius</code> spec:  <a href="https://drafts.csswg.org/css-backgrounds/#border-radius">https://drafts.csswg.org/css-backgrounds/#border-radius</a></li>
+<li><code>border-radius</code> on CSS almanac: <a href="https://css-tricks.com/almanac/properties/b/border-radius/">https://css-tricks.com/almanac/properties/b/border-radius/</a></li>
+<li>Forward slash in <code>border-radius</code>: <a href="https://www.sitepoint.com/setting-css3-border-radius-with-slash-syntax/">https://www.sitepoint.com/setting-css3-border-radius-with-slash-syntax/</a></li>
+</ul>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break">Backup App's local storage for testing on Android</h1>
+                <div class="no-break"><i>Tác giả:</i> tuna</div>
+                <div class="no-break"><i>Chủ đề:</i> Mobile, Android</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">5</h1>
+            </div>
+        </div>
+         <h2 id="các-rắc-rối-với-local-storage">Các rắc rối với local storage</h2>
+<p>1 app mobile thường có 2 thành phần lưu trữ chính, <strong><em>local storage</em></strong> và <strong><em>remote storage</em></strong> (server side). Local storage có thể chỉ là phần phản ánh dữ liệu ở remote, nhưng cũng có thể chứa các config chỉ dành cho client.</p>
+<p>Ngoài ra, dữ liệu ở local còn có thể chứa session của user từ lúc đăng nhập. Khác với web app, người dùng ở client thường chỉ đăng nhập 1 lần và sử dụng. Quá trình đăng nhập với app cũng phiền phức hơn so với web app trên PC.</p>
+<p>Bên cạnh đó, khi làm việc với database, developer thường gặp một điều phiền phức là version của database thay đổi, dẫn đến việc phải clean data trước rồi mới có thể cài đặt (rất hay gặp khi vừa phải fix bug trên <code>release</code> branch, vừa phải dev feature mới trên <code>main</code> branch).
+Việc xoá dữ liệu local dẫn đến việc phải thực hiện lại hầu như từ đầu các thao tác để tái thiết lập dữ liệu, hoặc thậm chí dữ liệu test từ năm ngoái biến mất không thể khôi phục.</p>
+<p>Test migration cũng là một việc phức tạp và cần phải lặp lại nhiều lần để có độ tự tin cao. Tuy nhiên, một khi đã migrate lên version mới, dữ liệu cũ không thể lấy lại được. Muốn có dữ liệu cũ phải cài lại app version cũ và thực hiện lại các bước để tái tạo dữ liệu.</p>
+<p>Giải pháp cho những rắc rối trên chính là backup local storage để phục vụ cho việc test hoặc debug hoặc chỉ để tiết kiệm thời gian thiết lập môi trường dev cho tuỳ chỉnh khác, cũng giúp giảm chi phí cần phải có nhiều thiết bị để test cho nhiều môi trường khác nhau (ví dụ, 1 device để test cho account ở US, 1 device để test cho account ở VN, etc.).</p>
+<h2 id="vậy-làm-sao-để-backup-local-storage">Vậy làm sao để backup local storage?</h2>
+<p>Với Android, Device Explorer trên Android Studio có thể giúp chúng ta làm việc này khá dễ dàng, nhưng lại khá mất thời gian.
+Backup:</p>
+<ol>
+<li>Tìm app</li>
+<li>Tìm folder</li>
+<li>Save</li>
+<li>Chọn save location</li>
+</ol>
+<p>Khi restore, chúng ta cần làm lại các bước tương tự.</p>
+<p>Có cách nào để làm nhanh hơn không?
+Thật may mắn, câu trả lời là có. <code>adb</code> kết hợp với <code>dd</code> là một công cụ mạnh mẽ để làm được việc này. Xem thêm chi tiết chém gió <a href="https://iamtuna.org/2023-10-08/use-adb-backup-restore-local-data-2">ở đây</a>.</p>
+<h3 id="ý-tưởng-cơ-bản">Ý tưởng cơ bản:</h3>
+<p><strong>Backup</strong></p>
+<ol>
+<li>Nén các thư mục cần backup vào 1 file <code>.gz</code></li>
+<li>Copy file <code>.gz</code> vào <code>sdcard</code> (dù tên là sdcard nhưng Android sẽ trỏ tới external storage) bằng Unix pipe và <code>dd</code><pre><code class="language-bash">adb shell <span class="hljs-string">&quot;run-as ...&quot;</span> | adb shell <span class="hljs-string">&quot;dd of=/sdcard/...&quot;</span>
+</code></pre>
+<strong>Restore</strong></li>
+<li>Copy file từ sdcard vào app’s dir bằng dd và Unix pipe<pre><code class="language-bash">adb shell <span class="hljs-string">&quot;dd if=/sdcard/...&quot;</span> | adb shell <span class="hljs-string">&quot;run-as ...&quot;</span>
+</code></pre>
+</li>
+<li>Giải nén và thay các thư mục tương ứng của app bằng nội dung trong backup.</li>
+</ol>
+<p>Xem script chi tiết ở repo này: <a href="https://github.com/tuanchauict/android-localstorage-backup/">https://github.com/tuanchauict/android-localstorage-backup/</a> (mirror from my scripts at work, not tested for general debuggable apps).</p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break">Network packet journey in Docker bridge</h1>
+                <div class="no-break"><i>Tác giả:</i> kien (ntk148v)</div>
+                <div class="no-break"><i>Chủ đề:</i> Networking, DevOps</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">6</h1>
+            </div>
+        </div>
+         <p>Trong phạm vi của tài liệu này, chúng ta sẽ chỉ nói đến bridge mặc định của Docker: <code>docker0</code>, không tính đến các user-defined bridge network. Như đã nói ở trên, Docker daemon sử dụng iptables để kiểm soát, điều hướng kết nối ra/vào các containers.</p>
+<p>Để dễ hình dung, lấy một ví dụ như sau, chúng ta có một webserver chạy container:</p>
+<ul>
+<li>Network bridge và expose port 8000 trên host server.</li>
+<li>Host server có ip 10.0.10.26, docker0 sub-network 172.17.0.0/16.</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image1.png" alt=""></p>
+<h2 id="1-luồng-packet-với-kết-nối-từ-bên-ngoài-vào-trong-container">1. Luồng packet với kết nối từ bên ngoài vào trong container</h2>
+<p>Các chain <code>DOCKER</code>, <code>DOCKER-USER</code> và <code>DOCKER-ISOLATION-STAGE-*</code> đều do Docker daemon khởi tạo, có thể kiểm tra bằng các lệnh sau:</p>
+<pre><code class="language-shell">iptables -t nat -S
+iptables -S
+</code></pre>
+<p>Sau đây là flow di chuyển:</p>
+<ul>
+<li>Gửi request từ host bên ngoài đến endpoint 10.0.10.26:8000</li>
+<li>(1) <code>-t nat -A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER</code><ul>
+<li>Packet chuyển đến chain DOCKER (nat)</li>
+</ul>
+</li>
+<li>(2) -<code>t nat -A DOCKER ! -i docker0 -p tcp -m tcp --dport 8000 -j DNAT --to-destination 172.17.0.2:8000</code><ul>
+<li>DNAT, chuyển destination ip thành ip dải bridge 172.17.0.2</li>
+</ul>
+</li>
+<li>(3) <code>-t filter -A FORWARD -j DOCKER-USER</code><ul>
+<li>Packet đến chain FOWARD (filter), được chuyển đến chain DOCKER-USER (filter). Tại đây, packet đi qua các rules được người dùng định nghĩa, nếu không có rule DROP/REJECT nào thì sẽ trả về chain FOWARD (filter) (4) để thực hiện rule tiếp theo của chain FORWARD.</li>
+</ul>
+</li>
+<li>(5) <code>-t filter -A FORWARD -j DOCKER-ISOLATION-STAGE-1</code><ul>
+<li>Tương tự như chain DOCKER-USER (filter), không có rule nào thì trả về chain FOWARD (filter) (6). Nếu có rule match thì chuyển sang DOCKER-ISOLATION-STAGE-2.</li>
+</ul>
+</li>
+<li>(7) <code>-t filter -A FORWARD -o docker0 -j DOCKER</code><ul>
+<li>Packet chuyển đến chain DOCKER (filter), output docker0. Docker daemon tạo các rule dựa theo expose ports config của container, và tự động thêm vào chain DOCKER (filter).</li>
+</ul>
+</li>
+<li>(8) <code>-t filter -A DOCKER -d 172.17.0.2/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport 8000 -j ACCEPT</code><ul>
+<li>Tại chain DOCKEr (filter), packet match rule, được accept.</li>
+</ul>
+</li>
+<li>(9) Packet đi đến container để xử lý.</li>
+<li>(10) Ở chiều ra, packet đi ra chain OUTPUT -&gt; chain POSTROUTING (nat) để thực hiện SNAT.</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image2.png" alt=""></p>
+<h2 id="2-luồng-packet-với-kết-nối-giữa-các-container-trong-cùng-network-bridge">2. Luồng packet với kết nối giữa các container trong cùng network bridge</h2>
+<p>Khởi tạo thêm một container nữa, cùng bridge default docker0 với container webserver hiện có. Từ container mới, thực hiện gửi request đến endpoint 10.0.10.26:8000 (dĩ nhiên trong cùng một network, container mới có thể gọi trực tiếp đến 172.17.0.2:8000 của container webserver, tuy nhiên chúng ta không bàn tới trường hợp đó). Luồng packet như sau:</p>
+<ul>
+<li>Packet đi theo default route về gateway docker0.</li>
+<li>Dựa theo rule iptables MASQUERADE, source host và destination port của packet thành 172.17.0.1 và 8000 (do tại ví dụ, chúng ta để exposed port giống port trong container, đều là 8000. Trong trường hợp port trong container là 80, destination port của container đổi thành 80):</li>
+</ul>
+<pre><code class="language-shell">iptables -t nat -A POSTROUTING -s 172.17.0.0/16 ! -o docker0 -j MASQUERADE
+</code></pre>
+<ul>
+<li>Packet đi đến container webserver.</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image3.png" alt=""></p>
+<h2 id="3-luồng-packet-với-kết-nối-giữa-container-sử-dụng-network-bridge-khác-nhau">3. Luồng packet với kết nối giữa container sử dụng network bridge khác nhau</h2>
+<p>Đối với trường hợp giao tiếp giữa các container thuộc các dải bridge network khác nhau, request đến endpoint 10.0.10.26:8000 khi đến container webserver sẽ có source 172.17.0.1. Đường đi của packet như sau:</p>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image4.png" alt=""></p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break">Xem đất 101</h1>
+                <div class="no-break"><i>Tác giả:</i> ledongthuc</div>
+                <div class="no-break"><i>Chủ đề:</i> Hobbies, Real Estate</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">7</h1>
+            </div>
+        </div>
+         <h1 id="xem-đất-101">Xem đất 101</h1>
+<p><del>Một người chị trong nghề từng nói: “Không tiền thì cạp đất mà ăn.”</del></p>
+<p>Trong suốt năm vừa qua, một người <strong>anh em</strong> của tôi có mua đất, tôi may mắn được đi theo vài lần nên có một vài kinh nghiệm nhỏ nhoi. Trong quá trình này, tôi đã ghi chép lại một số điểm quan trọng cần chú ý khi xem xét và có kế hoạch mua đất.</p>
+<p><strong>Disclaimer</strong>: Lưu ý rằng thông tin dưới đây mang tính chất chủ quan và đồng ý rằng nên kiểm tra thông tin trực tiếp.</p>
+<h2 id="1-loại-đất">1. Loại đất</h2>
+<h3 id="11-đất-dự-án">1.1. Đất Dự Án</h3>
+<p>Đất dự án, hay còn được biết đến như đất nền dự án, là những lô đất thuộc quy hoạch của chủ đầu tư, chưa có xây dựng, thường được phân lô và bán lại sau khi hạ tầng được xây dựng.</p>
+<p>Loại đất này thường được chính quyền duyệt và có quy hoạch chi tiết, bao gồm mật độ xây dựng, cây xanh, chiều cao xây dựng, và hạ tầng giao thông rõ ràng.</p>
+<p>Đây cũng là loại đất thường được các bạn sale chạy nhiều nhất. Và cũng là loại đất trong thời gian gần đây nhiều chủ đầu tư không uy tín bán nhất, vì để có thể bán được, chủ đầu tư phải đảm bảo:</p>
+<ul>
+<li>Xây dựng kết cấu hạ tầng công trình kết cấu hạ tầng theo quy hoạch chi tiết xây dựng 1/500 được cấp có thẩm quyền phê duyệt.</li>
+<li>Đảm bảo cung cấp các dịch vụ thiết yếu là cấp điện, cấp nước, thoát nước, thu gom rác thải.</li>
+<li>Chủ đầu tư hoàn thành nghĩa vụ tài chính liên quan đến đất đai ( tiền sử dụng đất, thuế, lệ phí, đền bù).</li>
+<li>Giấy chứng nhận hoặc quyết định giao đất/quyết định cho thuê đất.</li>
+<li>Giấy tờ xác minh hoàn thành nghĩa vụ tài chính của chủ đầu tư để được sử dụng đất hợp pháp.</li>
+<li>Giấy phép xây dựng.
+Nhưng thông thường, các chủ đầu tư sẽ cố gắng bán lô đất trước để có vốn xây dựng, nên sảy ra trường hợp đất đã mua rồi nhưng hạ tàng chưa xong và cũng không thể ra giấy tờ được. Trong vài năm trở lại đây, họ kêu gọi góp vốn dưới hình thức hợp đồng góp vốn. Đây là dạng hợp đồng hợp tác kinh doanh bất động sản dưới hình thức góp vốn đầu tư để có thể lách luật không thể bán đất nhưng vẫn có thể có vốn.</li>
+</ul>
+<h3 id="12-đất-thổ-cư">1.2. Đất thổ cư</h3>
+<p>Khác với đất dự án, đất thổ cư là đất mà người dân quản lý trực tiếp mà không thông qua chủ đầu tư. Đây bao gồm đất ở ở khu vực nông thôn và đô thị.</p>
+<p>Có hai loại đất thổ cư chính: đất thổ cư đô thị và đất thổ cư nông thôn, được ảnh hưởng bởi chính sách quản lý và quy hoạch địa phương.</p>
+<p>Đất thổ cư đô thị thuộc phường, thị trấn, quận, thành phố, thị xã hoặc khu quy hoặc đô thị mới. Trong khi đó đất thổ cư nông thôn thuộc khu vực nông thôn và do xã quản lý.</p>
+<p>Hai loại đất thổ cư này sẽ ảnh hưởng nhiều từ chính sách quản lý, được áp dụng chính sách thu thuế cũng như quy hoạch riêng. Vd ở một vài địa phương có đất thổ cư nông thôn mình biết có thể xây dựng không cần xin giấy phép nếu không có quy hoạch. Vị trí đất cũng ảnh hưởng nhiều tới quy định về diện tích tối thiểu để tách thửa, tách sổ.</p>
+<h3 id="13-đất-nông-nghiệp">1.3. Đất nông nghiệp</h3>
+<p>Đất nông nghiệp là loại đất được sử dụng chủ yếu cho mục đích trồng cây trồng, hoa màu, đất rừng, trồng cây lâu năm, trồng cây hàng năm, trồng lúa, rừng, nuôi trồng thuỷ sản, chăn nuôi gia súc.</p>
+<p>Đất nông nghiệp thường được mua nếu bạn có dự định làm nông, hoặc chờ quy hoạch để chuyển đổi mục đích sử dụng lên đất thổ cư.</p>
+<h2 id="2-pháp-lý">2. Pháp lý</h2>
+<h3 id="21-giấy-chứng-nhận-quyền-sử-dụng-đất-quyền-sở-hữu-nhà-ở-và-tài-sản-khác-gắn-liền-với-đất">2.1. Giấy chứng nhận quyền sử dụng đất, quyền sở hữu nhà ở và tài sản khác gắn liền với đất</h3>
+<p>Hay còn được gọi là sổ hồng, thường là giấy tờ pháp lý đầu tiên nên kiểm tra khi xem đất. Trên sổ sẽ có thông tin về:</p>
+<ul>
+<li>Loại đất</li>
+<li>Thời hạn sử dụng đất</li>
+<li>Thông tin về các phần được và không được công nhận từ phía có thẩm quyền</li>
+<li>Kích thước và hình dạng đất</li>
+<li>Toạ độ vị trí đất</li>
+</ul>
+<h3 id="22-quy-hoạch-đất-và-tranh-chấp">2.2. Quy hoạch đất và tranh chấp</h3>
+<p>Ngoài việc xem trên sổ hồng/sổ đỏ, thông tin quy hoạch và tranh chấp có thể lấy thông tin mới nhất từ Uỷ Ban Nhân Dân cấp xã, phường, thị trấn, phòng địa chính để xin thông tin quy hoạch của miếng đất. Hoặc cách mình hay sử dụng hơn là gửi phiếu yêu cầu thông tin quy hoạch đất tại văn phòng đăng ký đất đai tại địa phương ấy.</p>
+<p>Bằng việc thu thập thông tin quy hoạch đất, ta sẽ có thêm thông tin về:</p>
+<ul>
+<li>Diện tích và hình dạng phần đất thổ cư, và phi thổ cư.</li>
+<li>Những phần đất không được công nhận</li>
+<li>Phần diện tích sử dụng chung</li>
+<li>Phần đất được quy hoạch làm đường, cột điện cao thế, mương, đê điều, …</li>
+<li>Thông tin đất đang trong quá trình tranh chấp, kê biên để bảo đảm thi hành án</li>
+</ul>
+<p>Ngoài ra, còn một cách để thu thập thông tin nữa là thông qua hàng xóm, những người buôn bán gần đấy để xin thông tin.</p>
+<h2 id="3-hướng-đất">3. Hướng đất</h2>
+<p>Hướng đất ảnh hưởng nhiều tới quá trình sinh sống vì do ảnh hưởng của gió mùa, khí hậu, nắng và các yếu tố thời tiết, môi trường.
+Hướng đất hoàn toàn có thể khắc phục bằng cách xây cửa nhà/cổng/cửa sổ theo hướng khác. Dưới đây là một vài thông tin đúng so với đất ở miền nam Việt Nam.</p>
+<h3 id="31-đông">3.1. Đông</h3>
+<p>Hướng đông nhận nắng sớm, tốt cho sức khỏe. Tuy nhiên, có thể gặp khó khăn trong việc phơi đồ và nhận mưa vào mùa mưa.</p>
+<h3 id="32-tây">3.2. Tây</h3>
+<p>Hướng tây nhận ánh sáng mặt trời nhiều nhất, nhưng có thể nóng và chói lọi vào buổi chiều. Cần cân nhắc các biện pháp chống nóng.</p>
+<h3 id="33-nam">3.3. Nam</h3>
+<p>Hướng nam lưu thông gió tốt, đón sáng tối ưu. Tuy nhiên, cần đặc biệt chú ý đến nhiệt độ cao vào mùa hè.</p>
+<h3 id="34-bắc">3.4. Bắc</h3>
+<p>Hướng bắc mát mẻ vào mùa hè, nhưng có thể thiếu ánh sáng tự nhiên. Không thuận lợi cho việc trồng cây.</p>
+<h2 id="4-tiện-ích-xung-quanh">4. Tiện ích xung quanh</h2>
+<p>Tiện ích xung quanh đất ảnh hưởng rất nhiều đến giá trị và khả năng sử dụng của miếng đất. Một số tiện ích thường mình hay cây nhắc tới:</p>
+<ul>
+<li>Chợ &amp; siêu thị: gần chợ thì tiện, xô bồ, náo nhiệt. Xa chợ thì yên tĩnh, bất tiện.</li>
+<li>Khu dân cư hiện hữu</li>
+<li>Bệnh viện</li>
+<li>Trường học</li>
+<li>Giao thông, đường lớn, trục đường xe hàng, xe tải</li>
+<li>Hạ tầng nước, điện, internet</li>
+<li>Bãi rác</li>
+<li>Nhà máy nhiệt điện, nhà máy than, công xưởng, lò hoả thiêu, nhà máy dệt</li>
+</ul>
+<h2 id="kích-thước-hình-dạng-đất">Kích thước hình dạng đất</h2>
+<p>Kích thước và hình dạng đất là những yếu tố quan trọng khi chọn mua đất và có thể ảnh hưởng đến khả năng sử dụng và giá trị của tài sản. Các hình dạng đất thông dụng:</p>
+<ul>
+<li>Đất vuông vắn, không cắt, không cong. Ưu tiên hình vuông, chữ nhật.</li>
+<li>Đất hình thang nở hậu phía sau.</li>
+</ul>
+<p>Ngoài ra đất góc, đất cạnh cũng được ưu tiên.</p>
+<h1 id="tạm-kết">Tạm kết</h1>
+<p>Dù sao thì coi đất cũng dựa khá nhiều vào ý kiến chủ quan, nhưng nếu bạn xây nhà có len chân tường cao 1m2, thì nhà bạn chắc chắn đẹp nhé.</p>
  
     </body>
 </html>
