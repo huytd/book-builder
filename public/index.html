@@ -7,22 +7,44 @@
         <link href="style.css" rel="stylesheet">
         <link href="grayscale.css" rel="stylesheet">
         <link href="interface.css" rel="stylesheet" media="screen">
-        <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Crimson+Pro:ital,wght@0,400;0,600;0,800;1,400;1,600;1,800&family=Roboto+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+        <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
+        <script src="toc.js"></script>
+        <script>
+            class handlers extends Paged.Handler {
+                constructor(chunker, polisher, caller) {
+                super(chunker, polisher, caller);
+                }
+
+                beforeParsed(content) {
+                createToc({
+                    content: content,
+                    tocElement: "#table-of-content",
+                    titleElements: [".chapter-cover .chapter-name h1"],
+                });
+                }
+            }
+            Paged.registerHandlers(handlers);
+        </script>
     </head>
     <body>
+        <section class="table-of-content">
+            <h1>Table of Contents</h1>
+            <div id="table-of-content"></div>
+        </section>
         
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">Function as useEffect's dependency</h1>
+                <h1 class="no-break" data-num="1" data-part="0">Function as useEffect's dependency</h1>
                 <div class="no-break"><i>Tác giả:</i> huytd</div>
                 <div class="no-break"><i>Chủ đề:</i> Front End, React</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
                 <h1 class="no-break">1</h1>
+                
             </div>
         </div>
          <p>Khi sử dụng ESLint trong một dự án React, kiểu gì bạn cũng sẽ gặp tình huống mà bạn cho là vớ vẩn như sau: Bạn có một đoạn code xài useEffect, trong đó bạn gọi một function, thường thì function này được tạo ra ngay trong component hiện tại luôn, ví dụ:</p>
@@ -101,13 +123,14 @@ const Component = () =&gt; {
  
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">You can’t simply send a UDP packet in web browser</h1>
+                <h1 class="no-break" data-num="2" data-part="0">You can’t simply send a UDP packet in web browser</h1>
                 <div class="no-break"><i>Tác giả:</i> giongto35</div>
                 <div class="no-break"><i>Chủ đề:</i> Front End, Networking</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
                 <h1 class="no-break">2</h1>
+                
             </div>
         </div>
          <p>Thường trong khi đi học về network, chúng ta thường gặp câu hỏi là: trong các trường hợp mình đòi hỏi độ trễ thấp và không quan tâm packet sẽ bị rơi rớt giữa chừng, như video stream hoặc multiplayer game, thì network protocol nào nên sử dụng? Câu trả lời ai cũng có trong đầu là sử dụng UDP.</p>
@@ -153,13 +176,14 @@ const Component = () =&gt; {
  
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">Tiny trees, in tiny pots 🌲</h1>
+                <h1 class="no-break" data-num="3" data-part="0">Tiny trees, in tiny pots 🌲</h1>
                 <div class="no-break"><i>Tác giả:</i> Bần làm vườn</div>
                 <div class="no-break"><i>Chủ đề:</i> Hobbies, Plant</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
                 <h1 class="no-break">3</h1>
+                
             </div>
         </div>
          <p>Bonsai. I’m talking about bonsai. Lúc bắt đầu viết thì mình cũng hơi đắn đo không biết là bản thân có đủ qualified để viết về chủ đề này hay không. Nhưng suy cho cùng mục đích của mình ở đây không phải viết một cái comprehensive guide, để khi đọc xong mọi người trở thành bonsai expert. Sharing này mong có thể giúp các bạn hiểu hơn về bonsai, và inspire các bạn thử sức với hobby này.</p>
@@ -173,13 +197,14 @@ Bonsai is as cheap and interesting as you want it to be</p>
  
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">border-radius thực sự là gì?</h1>
+                <h1 class="no-break" data-num="5" data-part="0">border-radius thực sự là gì?</h1>
                 <div class="no-break"><i>Tác giả:</i> ZeroX-DG</div>
                 <div class="no-break"><i>Chủ đề:</i> Front End, CSS</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
-                <h1 class="no-break">4</h1>
+                <h1 class="no-break">5</h1>
+                
             </div>
         </div>
          <p>Các bạn đọc tựa xong sẽ nghĩ: “ơ ông này vớ vẩn, border-radius để bo góc mấy cái div chứ làm gì?”</p>
@@ -218,13 +243,14 @@ y_circle = y_div_corner + border_radius (or -border_radius if it&#x27;s the bott
  
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">Backup App's local storage for testing on Android</h1>
+                <h1 class="no-break" data-num="6" data-part="0">Backup App's local storage for testing on Android</h1>
                 <div class="no-break"><i>Tác giả:</i> tuna</div>
                 <div class="no-break"><i>Chủ đề:</i> Mobile, Android</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
-                <h1 class="no-break">5</h1>
+                <h1 class="no-break">6</h1>
+                
             </div>
         </div>
          <h2 id="các-rắc-rối-với-local-storage">Các rắc rối với local storage</h2>
@@ -262,13 +288,14 @@ Thật may mắn, câu trả lời là có. <code>adb</code> kết hợp với <
  
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">Network packet journey in Docker bridge</h1>
+                <h1 class="no-break" data-num="7" data-part="0">Network packet journey in Docker bridge</h1>
                 <div class="no-break"><i>Tác giả:</i> kien (ntk148v)</div>
                 <div class="no-break"><i>Chủ đề:</i> Networking, DevOps</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
-                <h1 class="no-break">6</h1>
+                <h1 class="no-break">7</h1>
+                
             </div>
         </div>
          <p>Trong phạm vi của tài liệu này, chúng ta sẽ chỉ nói đến bridge mặc định của Docker: <code>docker0</code>, không tính đến các user-defined bridge network. Như đã nói ở trên, Docker daemon sử dụng iptables để kiểm soát, điều hướng kết nối ra/vào các containers.</p>
@@ -332,13 +359,14 @@ iptables -S
  
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">Xem đất 101</h1>
+                <h1 class="no-break" data-num="30" data-part="1">Xem đất 101</h1>
                 <div class="no-break"><i>Tác giả:</i> ledongthuc</div>
                 <div class="no-break"><i>Chủ đề:</i> Hobbies, Real Estate</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
-                <h1 class="no-break">7</h1>
+                <h1 class="no-break">30</h1>
+                <h4 class="no-break">1<sup>st</sup></h4>
             </div>
         </div>
          <h1 id="xem-đất-101">Xem đất 101</h1>
@@ -423,13 +451,14 @@ Hướng đất hoàn toàn có thể khắc phục bằng cách xây cửa nhà
  
         <div class="chapter-cover">
             <div class="chapter-name">
-                <h1 class="no-break">GitlabCI và tuyệt thế võ học tối ưu pipeline</h1>
+                <h1 class="no-break" data-num="30" data-part="2">GitlabCI và tuyệt thế võ học tối ưu pipeline</h1>
                 <div class="no-break"><i>Tác giả:</i> Minh Monmen</div>
                 <div class="no-break"><i>Chủ đề:</i> DevOps, GitlabCI, Docker</div>
             </div>
             <div class="chapter-number">
                 <h3 class="no-break">Ngày thứ</h3>
-                <h1 class="no-break">8</h1>
+                <h1 class="no-break">30</h1>
+                <h4 class="no-break">2<sup>nd</sup></h4>
             </div>
         </div>
          <h1 id="gitlabci-và-tuyệt-thế-võ-học-tối-ưu-pipeline">GitlabCI và tuyệt thế võ học tối ưu pipeline</h1>

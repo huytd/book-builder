@@ -7,12 +7,33 @@
         <link href="style.css" rel="stylesheet">
         <link href="grayscale.css" rel="stylesheet">
         <link href="interface.css" rel="stylesheet" media="screen">
-        <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Crimson+Pro:ital,wght@0,400;0,600;0,800;1,400;1,600;1,800&family=Roboto+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+        <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
+        <script src="toc.js"></script>
+        <script>
+            class handlers extends Paged.Handler {
+                constructor(chunker, polisher, caller) {
+                super(chunker, polisher, caller);
+                }
+
+                beforeParsed(content) {
+                createToc({
+                    content: content,
+                    tocElement: "#table-of-content",
+                    titleElements: [".chapter-cover .chapter-name h1"],
+                });
+                }
+            }
+            Paged.registerHandlers(handlers);
+        </script>
     </head>
     <body>
+        <section class="table-of-content">
+            <h1>Table of Contents</h1>
+            <div id="table-of-content"></div>
+        </section>
         {%content%}
     </body>
 </html>

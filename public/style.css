@@ -59,11 +59,15 @@ pre {
 }
 
 @page {
-    size: executive;
+    size: A4;
     margin: 0.825in 0.65in 0.65in;
     text-align: justify;
     line-height: 1.25em;
     background: #fff;
+
+    @bottom-right {
+        content: counter(page);
+    }
 }
 
 @page: left {
@@ -118,6 +122,16 @@ img {
 .chapter-cover .chapter-number h1 {
     font-size: 6em;
     margin-top: 0.35em;
+    margin-bottom: 0.35em;
+}
+
+.chapter-cover .chapter-number h4 {
+    margin-top: 0.35em;
+    font-size: 1.2em;
+}
+
+.chapter-cover .chapter-number h4 sup {
+    font-size: 0.6em;
 }
 
 .page-break {
@@ -142,4 +156,95 @@ blockquote p {
     line-height: 1.6em;
     color: #333;
     margin: 0;
+}
+
+.table-of-content h1 {
+    margin: auto;
+    text-align: center;
+}
+
+#toc li a::after {
+    content: target-counter(attr(href), page);
+    float: right;
+}
+
+/* set the style for the list numbering to none */
+#list-toc-generated {
+    list-style: none;
+}
+
+#list-toc-generated .toc-element {
+    break-inside: avoid;
+}
+
+#list-toc-generated .toc-element a::after {
+    content: ". " target-counter(attr(href), page);
+    float: right;
+}
+
+#list-toc-generated .toc-element-level-1 {
+    margin-top: 25px;
+    font-weight: bold;
+}
+
+#list-toc-generated .toc-element-level-2 {
+    margin-left: 25px;
+}
+
+/* counters */
+
+#list-toc-generated {
+    counter-reset: counterTocLevel1;
+}
+
+#list-toc-generated .toc-element-level-1 {
+    counter-increment: counterTocLevel1;
+    counter-reset: counterTocLevel2;
+}
+
+#list-toc-generated .toc-element-level-1::before {
+    /* content: counter(counterTocLevel1) ". "; */
+    padding-right: 5px;
+}
+
+#list-toc-generated .toc-element-level-2 {
+    counter-increment: counterTocLevel2;
+}
+
+#list-toc-generated .toc-element-level-2::before {
+    content: counter(counterTocLevel1) ". " counter(counterTocLevel2) ". ";
+    padding-right: 5px;
+}
+
+/* hack for leaders */
+
+#list-toc-generated {
+    overflow-x: hidden;
+}
+
+/* fake leading */
+#list-toc-generated .toc-element::after {
+    content: ".............................................."
+        ".............................................."
+        ".............................................." "........";
+    float: left;
+    width: 0;
+    padding-left: 5px;
+    letter-spacing: 2px;
+}
+
+#list-toc-generated .toc-element {
+    display: flex;
+}
+
+#list-toc-generated .toc-element a::after {
+    position: absolute;
+    right: 0;
+    background-color: white;
+    padding-left: 6px;
+}
+
+#list-toc-generated .toc-element a {
+    font-style: normal;
+    right: 0;
 }
