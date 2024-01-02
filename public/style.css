@@ -25,15 +25,32 @@ code,
 pre {
     font-family: var(--font-mono);
     font-size: var(--font-size-mono);
+    color: #333;
+    background-color: #f4f4f4;
 }
 
 pre code {
     line-height: 1.15em;
+    padding: 0;
+}
+
+pre {
+    background-color: #f4f4f4;
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
+
+code {
+    padding: 2px 5px;
+    border-radius: 2px;
 }
 
 a {
     text-decoration: none;
     color: currentColor;
+    font-style: italic;
 }
 
 pre {
@@ -70,6 +87,7 @@ pre {
 }
 
 img {
+    display: block;
     max-width: 90%;
     margin: 0 auto;
 }
@@ -111,4 +129,17 @@ hr {
     height: 0;
     visibility: hidde;
     break-after: page;
+}
+
+blockquote {
+    background-color: #f9f9f9;
+    border-left: 4px solid #808080;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+blockquote p {
+    line-height: 1.6em;
+    color: #333;
+    margin: 0;
 }

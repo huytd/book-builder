@@ -421,5 +421,335 @@ Hướng đất hoàn toàn có thể khắc phục bằng cách xây cửa nhà
 <h1 id="tạm-kết">Tạm kết</h1>
 <p>Dù sao thì coi đất cũng dựa khá nhiều vào ý kiến chủ quan, nhưng nếu bạn xây nhà có len chân tường cao 1m2, thì nhà bạn chắc chắn đẹp nhé.</p>
  
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break">GitlabCI và tuyệt thế võ học tối ưu pipeline</h1>
+                <div class="no-break"><i>Tác giả:</i> Minh Monmen</div>
+                <div class="no-break"><i>Chủ đề:</i> DevOps, GitlabCI, Docker</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">8</h1>
+            </div>
+        </div>
+         <h1 id="gitlabci-và-tuyệt-thế-võ-học-tối-ưu-pipeline">GitlabCI và tuyệt thế võ học tối ưu pipeline</h1>
+<p>Những tuyệt kỹ võ công cái thế với chiếc gậy của lão ăn mày - GitlabCI.</p>
+<h2 id="first-things-first">First things first</h2>
+<ul>
+<li>Em đang gặp vấn đề với GitlabCI vì build docker khá chậm, làm sao để tăng tốc nó lên anh?</li>
+<li>Mỗi lần code xong là em phải chờ 10-15 phút mới lên được môi trường dev, thay có mỗi cái ảnh thôi cũng build lại cả project!</li>
+<li>Sao chạy build bằng GitlabCI mà thời gian lại lâu gấp đôi build bằng Jenkin thế ạ?</li>
+</ul>
+<p><img src="img/day-302/image-1.webp" alt="image.png"></p>
+<p>Đây là những câu hỏi, những câu cảm thán trên không ít các diễn đàn, hội nhóm công nghệ. Người than thở thì cũng trải rộng từ Dev, System, DevOps,… chứ không phải ít. Điều này chứng tỏ mặc dù GitlabCI từ lâu đã trở thành tool CI “quốc dân” được đông đảo tầng lớp IT sử dụng, thế nhưng vẫn có rất nhiều người loay hoay không biết làm thế nào để sử dụng GitlabCI cho hợp lý và quan trọng hơn là cho nó nhanh.</p>
+<p>Nắm bắt được nhu cầu đó, tại hạ - <strong>Minh Monmen</strong> - thân là chân le ve trà nước đụng gì làm đó trong Cái Bang thôi nhưng được cái dùng GitlabCI cũng ngót nghét 8 mùa bánh chưng nên nay lãnh trọng trách biên soạn cuốn bí kíp tuyệt thế võ công xung quanh chiếc <strong>Đả Cẩu Bổng</strong> quen thuộc này.</p>
+<p>Vốn lâu nay tại hạ mai danh ẩn tích trên giang hồ, chỉ sinh hoạt ở vài hội kín chuyên chat chit trong giờ hành chính như webu, DevOps VN,… Thế nhưng thấy thế sự nguy cấp, dân chúng lầm than, tại hạ lòng đau như cắt, nước mắt đầm đìa, chỉ căm tức chưa xả… í lộn bài, chỉ hận không thể lập tức cứu khốn phò nguy, trấn an bá tánh mà chỉ có thể ngồi đây soạn ra cuốn tuyệt thế võ học này. Thôi thì kính mong chư vị huynh đài có đi qua đây thả cho 1 upvote và vài lời bình phẩm (comment) để bí kíp cái bang này hoàn thiện hơn.</p>
+<p>Bí kíp này sẽ tập trung vào những vấn đề xung quanh 1 môn võ duy nhất: <strong>Build docker image với GitlabCI</strong>.</p>
+<h2 id="cấp-độ-1-setup-self-hosted-gitlabci-runner-để-build-được-docker">Cấp độ 1: Setup self-hosted GitlabCI runner để build được docker</h2>
+<p>Để đọc được phần này thì tại hạ sẽ ngầm hiểu quý vị độc giả đã <strong>biết GitlabCI là cái gì</strong>, <strong>đã dùng thử GitlabCI</strong> và <strong>hiểu được self-hosted runner</strong> nghĩa là gì rồi. Và cũng ngầm hiểu luôn là quý vị đã đọc kỹ hướng dẫn này của gitlab về những phương pháp setup runner để build được docker image: <a href="https://docs.gitlab.com/ee/ci/docker/using_docker_build.html">https://docs.gitlab.com/ee/ci/docker/using_docker_build.html</a>.</p>
+<p>Đại khái thì để chạy được lệnh build của docker thì chúng ta cần 1 cái <strong>docker daemon</strong> được chạy ở đâu đó và Gitlab đã nói rất rõ về 3 phương pháp chính dùng để build docker trong job là:</p>
+<ul>
+<li>Sử dụng <strong>shell executor</strong>: Dùng <strong>shell của host</strong> do đó sẽ có quyền truy cập đến <strong>docker daemon của host</strong>.</li>
+<li>Sử dụng <strong>Docker-in-Docker</strong>: <strong>Chạy script trong container</strong> bằng docker / kubernetes executor và <strong>sử dụng docker daemon của 1 container đặc biệt</strong> chạy kèm là <strong>docker-in-docker</strong> (dind)</li>
+<li><strong>Mount docker socket</strong> vào container: Đây là kiểu lai giữa 2 thằng trên, <strong>chạy script trong container</strong> bằng docker executor nhưng lại sử dụng <strong>docker daemon của host</strong> thông qua việc mount cái <code>/var/run/docker.sock</code>.</li>
+</ul>
+<blockquote>
+<p><em>Còn 2 phương pháp ngoài lề nữa là dùng những thằng không phải docker để build image như là kaniko hay là buildah thì tại hạ sẽ không đề cập ở đây vì đơn giản là tại hạ xài thử lâu rồi và nó chậm quá, không phù hợp cho 1 bài về tối ưu tốc độ như này.</em> </p>
+</blockquote>
+<p>Mỗi phương pháp thì đều có điểm lợi hại riêng. Không có phương pháp nào là chuẩn chỉ mà việc lựa chọn 1 trong 3 phương pháp này dựa trên requirement của từng hệ thống và tradeoff mà thôi.</p>
+<p>Ví dụ như với hệ thống nghèo khó của tại hạ chỉ có 1 con VPS nho nhỏ dùng để chạy runner thì tại hạ sẽ chọn cách thứ 3 (mount docker socket) vì:</p>
+<ul>
+<li>Cách dùng <strong>shell executor</strong> thì không khoái vì nó không isolate được môi trường chạy script của tại hạ (do chạy chung trên shell của host). Do đó nó phụ thuộc rất nhiều vào môi trường của host. Chẳng hạn như host chạy node ver nào blablo. Bỏ qua ngay và luôn.</li>
+<li>Dùng <strong>Docker-in-Docker</strong> thì tại hạ đã từng setup rất nhiều, cả trên VM cả trên các loại K8S managed như GKE, EKS hay K8S tự setup bằng kops. Suck! Cái vũng lầy về kết nối TLS nó quá là sâu, mất quá nhiều thời gian quý báu của tại hạ và team. Nhất là cái giai đoạn docker ở version loanh quanh 1.19 nó lỗi lên lỗi xuống, vài hôm lại lỗi tè le mà chả thay đổi gì cũng chả hiểu tại sao. Thêm cái là nó chạy storage trong docker nên cũng chậm đi so với 2 cách build còn lại kha khá. Thôi thì hệ thống là của anh em, nên anh em có thể cân nhắc xài cũng ok, các phương pháp trong cuốn bí kíp này vẫn có thể áp dụng bình thường.</li>
+</ul>
+<p><img src="img/day-302/image-2.webp" alt="image.png"></p>
+<p>Chọn phương pháp mount docker socket vì nó đơn giản, nó work out of the box và rất ít phải thay đổi file gitlab-ci config (như dind là thêm env rồi service tá lả). Tất nhiên nó có vấn đề về security với host, nhưng tầm quan trọng của cái vấn đề đó với tại hạ không quá to để lấn át khoảng thời gian tiết kiệm được nhờ sử dụng nó.</p>
+<p>Ok, sau khi chúng ta đã có 1 con VPS có cài docker version mới nhất thì start gitlab runner với câu lệnh sau:</p>
+<pre><code class="language-bash">$ docker run -d --name gitlab-runner --restart always \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /srv/gitlab-runner/config:/etc/gitlab-runner \
+    gitlab/gitlab-runner:alpine
+</code></pre>
+<p>Sau đó chúng ta vô Gitlab, tạo mới 1 runner cho project hoặc cho group. Với flow cấp token mới của GitlabCI thì ta sẽ nhận được <code>authentication token</code> thay vì <code>registration token</code>. Do vậy sẽ cần chạy command sau để đăng ký runner:</p>
+<pre><code class="language-bash">$ <span class="hljs-built_in">export</span> RUNNER_AUTH_TOKEN=&lt;your_auth_token&gt;
+$ docker run --<span class="hljs-built_in">rm</span> -it -v /srv/gitlab-runner/config:/etc/gitlab-runner gitlab/gitlab-runner:alpine register --token <span class="hljs-variable">$RUNNER_AUTH_TOKEN</span>
+</code></pre>
+<p><img src="img/day-302/image-3.png" alt="image.png"></p>
+<p>Xong. Runner của chúng ta đã được config và tự động chạy, các bạn có thể chạy <code>docker logs gitlab-runner</code> để thấy config đã được reload. Tuy nhiên config mặc định này chưa mount docker socket vô job cho chúng ta, do đó hãy sửa lại file config <code>/srv/gitlab-runner/config/config.toml</code> chút đỉnh:</p>
+<pre><code>concurrent = 1
+check_interval = 0
+shutdown_timeout = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = &quot;test-runner&quot;
+  url = &quot;https://gitlab.com&quot;
+  id = 1234567
+  token = &quot;&lt;your_auth_token&gt;&quot;
+  token_obtained_at = 2023-12-28T18:10:15Z
+  token_expires_at = 0001-01-01T00:00:00Z
+  executor = &quot;docker&quot;
+  [runners.cache]
+    MaxUploadedArchiveSize = 0
+  [runners.docker]
+    tls_verify = false
+    image = &quot;docker:24.0.7&quot;
+    privileged = false
+    disable_entrypoint_overwrite = false
+    oom_kill_disable = false
+    disable_cache = false
+    volumes = [&quot;/var/run/docker.sock:/var/run/docker.sock&quot;, &quot;/cache&quot;]
+    shm_size = 0
+    network_mtu = 0
+    pull_policy = &quot;if-not-present&quot;
+</code></pre>
+<blockquote>
+<p>Tip trick: trong config này nếu để ý các bạn sẽ thấy ngoài thêm volume docker socket ra thì còn có thêm 1 cái config <code>pull_policy = &quot;if-not-present&quot;</code>. Config này dùng để hạn chế việc runner lần nào build cũng phải pull lại các image cơ bản như docker, dind hay node mà dùng luôn image với tag đó có sẵn trên host. Cái này <strong>tiết kiệm được rất nhiều</strong> thời gian và tiền bạc mỗi khi job chạy đấy nhé. Ngoài ra còn hạn chế việc bị Docker hub rate limit vì pull quá nhiều nữa.</p>
+</blockquote>
+<blockquote>
+<p>Tips 2: Sau khi edit config gitlab-runner sẽ tự reload lại chứ không cần restart thủ công đâu nhé.</p>
+</blockquote>
+<p>Tới đây là xong, thử ngay và luôn với project <code>next-ecommerce</code> sử dụng nextjs clone từ bên github với <code>Dockerfile</code> simple sau:</p>
+<pre><code class="language-Dockerfile"><span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>
+
+<span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /app</span>
+<span class="hljs-keyword">EXPOSE</span> <span class="hljs-number">3000</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> . .</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn install</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn build</span>
+
+<span class="hljs-keyword">CMD</span><span class="language-bash"> [<span class="hljs-string">&quot;npm&quot;</span>, <span class="hljs-string">&quot;run&quot;</span>, <span class="hljs-string">&quot;start&quot;</span>]</span>
+</code></pre>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+</code></pre>
+<p>Kết quả:</p>
+<p><img src="img/day-302/image-4.webp" alt="image.png"></p>
+<h2 id="cấp-độ-2-tối-ưu-docker-layer-cache">Cấp độ 2: Tối ưu docker layer cache</h2>
+<p>Tất nhiên, app trên của chúng ta chỉ là 1 cái example app, nên thời gian install dependencies và build rất nhanh. Chạy lần đầu không cache củng gì mất có 2 phút rưỡi.</p>
+<p>Tuy nhiên đến đây tổng thể luồng CI/CD sẽ xuất hiện các vấn đề chưa tối ưu:</p>
+<ul>
+<li><strong>Docker image nặng</strong></li>
+<li><strong>Thời gian mỗi lần build lại sẽ giống như lần đầu tiên</strong> dù chúng ta thay đổi code ít hay nhiều (hay thậm chí không đổi gì)</li>
+<li><strong>Đánh tag docker image chưa tốt</strong>: Mặc dù tag image theo commit sha là 1 cách làm phổ biến bởi nó đảm bảo tách biệt docker image giữa các lần build, cũng đảm bảo container orchestration sẽ pull đúng image khi chạy. Tuy nhiên kiểu tag đơn giản này sẽ làm docker registry sẽ đầy lên nhanh chóng mà không có rule cleanup nào phù hợp, không thể cleanup theo từng môi trường hay từng loại image vì chỉ có 1 loại tag duy nhất.</li>
+</ul>
+<p>Để giải quyết những vấn đề này thì mọi người hãy đọc thêm bài viết này: Docker image in production - câu chuyện 1GB hay 100MB - <a href="https://viblo.asia/p/docker-image-in-production-cau-chuyen-1gb-hay-100mb-LzD5dXyE5jY">https://viblo.asia/p/docker-image-in-production-cau-chuyen-1gb-hay-100mb-LzD5dXyE5jY</a> về cách giảm dung lượng docker image cũng như tổ chức lại layer trong Dockerfile để <strong>có thể cache</strong>.</p>
+<p>Tại hạ sẽ không nói lại những thứ đã có trong bài viết trên, tuy nhiên chỗ này sẽ nói thêm 1 chút về những layer thường xuất hiện trong 1 application bình thường:</p>
+<ul>
+<li><strong>Static config (WORKDIR, EXPOSE,…)</strong> là những layer gần như không bao giờ thay đổi, sẽ được đặt đầu tiên.</li>
+<li><strong>System dependencies (RUN apk add, apt install,…)</strong> là những layer cài đặt môi trường và những dependencies của system, rất rất ít thay đổi xếp tiếp theo.</li>
+<li><strong>Application dependencies (RUN composer install, npm install,…)</strong> là những layer cài đặt các dependencies của application, có tần suất thay đổi lớn hơn chút ít tùy thuộc vào dev cài đặt thêm thư viện gì cho project. Ở đây package manager sẽ thường cần 1 file config (vd package.json, composer.json,…) và 1 file lock (package-lock.json, yarn.lock, composer.lock,…) để khóa version thư viện. 2 file này sẽ được copy trước và cài đặt để tận dụng được cache khi chỉ có code thay đổi. Có rất nhiều project config sai, ignore file lock trong gitignore dẫn đến loạn version, lúc build được lúc không,… Các bạn nhớ để ý kỹ vì file lock là thứ <strong>cực kỳ quan trọng</strong> đó nhé. Ngôn ngữ nào, package manager nào cũng hướng đến implement cơ chế lock version này.</li>
+<li><strong>Application code (COPY . /app)</strong> là những layer chứa code của application, có tần suất thay đổi lớn nhất, từ layer này trở đi thường là không thể cache được bằng docker layer. Người ta chỉ hạn chế những lần build không cần thiết (kiểu chỉ sửa README.md, sửa gitlab-ci.yml,…) bằng việc ignore những file này trong <code>.dockerignore</code> để khi build docker không thấy sự thay đổi code và sử dụng cache.</li>
+<li><strong>Application build (RUN npm build, go build…)</strong>: một số application sẽ cần build trước khi chạy. Đây có thể là những bước rất tốn thời gian, nhưng không cache được bằng Docker. Do đó chúng ta sẽ xem xét tối ưu quá trình này ở cấp độ cao hơn.</li>
+</ul>
+<p>Sau khi áp dụng các phương pháp trong bài viết trên thì chúng ta có 1 cái <code>Dockerfile</code> được tối ưu hơn như sau:</p>
+<pre><code class="language-Dockerfile"><span class="hljs-comment"># Builder stage</span>
+<span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>-alpine AS builder
+
+<span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /app</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> package.json yarn.lock ./</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn install --pure-lockfile</span>
+<span class="hljs-comment"># ^ Cache docker layer above this line</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> . .</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn build</span>
+<span class="hljs-comment"># Remove dev dependencies</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn install --pure-lockfile --prod </span>
+
+<span class="hljs-comment"># Runtime stage</span>
+<span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>-alpine
+
+<span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /app</span>
+<span class="hljs-keyword">EXPOSE</span> <span class="hljs-number">3000</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/package.json /app/next.config.js /app/yarn.lock ./</span>
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/node_modules ./node_modules</span>
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/public ./public</span>
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/.next ./.next</span>
+
+<span class="hljs-keyword">CMD</span><span class="language-bash"> [<span class="hljs-string">&quot;npm&quot;</span>, <span class="hljs-string">&quot;run&quot;</span>, <span class="hljs-string">&quot;start&quot;</span>]</span>
+</code></pre>
+<p>Vậy là docker image này đã <strong>có thể tận dụng được cache docker layer</strong> trong quá trình build. Các bạn có thể kiểm tra trên chính máy của mình bằng cách thử đổi code và build lại. Ngoài ra nó cũng đã được tối ưu về mặt dung lượng image để runtime image nhẹ nhất có thể. </p>
+<p><img src="img/day-302/image-5.jpg" alt="image.png"></p>
+<p>10 điểm, <strong>NHƯNG</strong> vầy là chưa đủ với quá trình CI/CD. Bởi vì Docker layer <strong>có thể</strong> cache được rồi, nhưng đấy là với trường hợp bạn đang build trên <strong>1 máy của bạn</strong>, cái <strong>docker daemon</strong> nó thấy có image layer cũ thì nó dùng. Còn với môi trường build của CI/CD thì có nhiều lý do để điều này không xảy ra:</p>
+<ul>
+<li>Sử dụng docker-in-docker. Lúc này docker daemon được chạy trong container, và không lưu lại gì cả giữa các lần build. Do đó không dùng được cache.</li>
+<li>Sử dụng mount docker.sock giống tại hạ ở trên, lúc này docker daemon của máy build sẽ chạy trên host, và có thể lưu lại cache giữa các lần build <strong>trên cùng 1 máy</strong>. Nếu các bạn setup runner khác chạy trên host khác thì cache cũng không dùng được. Hoặc lâu lâu phải clear bớt space trên con runner (nó rất là nhanh full disk nhé) thì cũng sẽ không dùng cache cũ nữa. Vậy là cache bị phụ thuộc vào con host chạy runner khá nhiều.</li>
+</ul>
+<p>Lúc này hãy chơi theo hướng dẫn này của Gitlab: <a href="https://docs.gitlab.com/ee/ci/docker/docker_layer_caching.html">https://docs.gitlab.com/ee/ci/docker/docker_layer_caching.html</a>. Ý tưởng ở đây là sẽ không phụ thuộc vào việc chạy build docker bằng dind hay là docker sock mà sẽ chủ động save lại docker image trên registry và pull về khi bắt đầu build. </p>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG_LATEST:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:latest</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">pull</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span> <span class="hljs-string">||</span> <span class="hljs-literal">true</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span>
+</code></pre>
+<p>Tất nhiên là quá trình pull và push image lên registry sẽ tốn thêm thời gian / network. Tuy nhiên khi build những project lớn hơn có thời gian build from scratch tới 10-20p hay cả tiếng thì các bạn sẽ thấy cái này hoàn toàn chấp nhận được nhé.</p>
+<p><img src="img/day-302/image-6.webp" alt="image.png"></p>
+<p>Oops, nhưng có gì đó sai sai, chỗ này chỉ đổi code thôi mà thời gian build không khác nhiều so với lúc đầu. Kiểm tra ra thì hóa ra là đoạn <code>yarn install</code> vẫn chưa được cache (trong khi đáng lẽ là phải được cache rồi). Tại sao vậy?</p>
+<p><img src="img/day-302/image-7.png" alt="image.png"></p>
+<p>Chỗ này té ra là do cơ chế của thằng <strong>multi-stage</strong> build là <strong>chỉ lưu lại image ở stage cuối cùng</strong>. Do đó những layer trong stage builder <strong>không được lưu lại</strong>, do đó không được cache dù đủ điều kiện để sử dụng. Ok vậy thì chúng ta lại tiếp tục lưu lại thêm cả cái builder image nữa bằng chỉ dẫn <code>--target</code> khi chạy command <code>docker build</code>. Chỗ này ta cũng không cần thiết phải lưu lại image runtime latest nữa vì sẽ cần tập trung ở cache trong stage builder.</p>
+<blockquote>
+<p>Một lỗi nữa chỗ này các bạn sẽ gặp là để xài được <code>--cache-from</code> thì phải enable buildkit và thêm <code>--build-arg BUILDKIT_INLINE_CACHE=1</code> thì mới nhận nhé. <strong>KHÔNG CÓ LÀ NÓ KHÔNG WORK ĐÂU</strong></p>
+</blockquote>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG_BUILDER:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/builder:latest</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">DOCKER_BUILDKIT:</span> <span class="hljs-string">&#x27;1&#x27;</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">pull</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">||</span> <span class="hljs-literal">true</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">--target=builder</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span>
+</code></pre>
+<p>Ok, chỗ này đã ổn áp rồi :D. Các bạn có thể thử build lại và kiểm tra xem có cache được chưa.</p>
+<p><img src="img/day-302/image-8.webp" alt="image.png"></p>
+<h2 id="cấp-độ-3-tối-ưu-bước-build-code-bằng-việc-extract-folder-cache">Cấp độ 3: Tối ưu bước build code bằng việc extract folder cache</h2>
+<p>Đa số việc tối ưu gitlab-ci của các bạn sẽ dừng lại ở cấp độ 2. Phần lớn các bí kíp tối ưu trôi nổi trên thị trường cũng thường chỉ dừng lại ở cấp độ này vì nó đã đáp ứng được đa số yêu cầu và các tình huống thực tế rồi. Những gì tại hạ sắp làm tiếp theo đây là những bước tối ưu cao hơn nhưng có thể không cần thiết hoặc không quá hiệu quả với project của các bạn. Ở đây các bạn hãy tự cân nhắc và thử nghiệm với tech stack của mình xem làm đến đâu là hợp lý.</p>
+<p>Ở kết quả của cấp độ trước, cái chúng ta đạt được là cache được layer <code>RUN yarn install</code>, là layer ít khi thay đổi. Còn 1 quá trình nữa rất tốn thời gian mà gần như không thể cache được bằng docker image layer là quá trình build ứng dụng <code>RUN yarn build</code>. Quá trình này đặc biệt lâu đối với các project frontend kiểu react, vue hay angular. Ở bước này thì code của chúng ta đã thay đổi, do đó docker layer cache đã bị vô hiệu. Vậy có cách nào để giảm thời gian thêm với bước này không?</p>
+<blockquote>
+<p><strong>CẢNH BÁO:</strong> Việc tìm cách cache lại step build đòi hỏi phải hiểu rõ về framework / ngôn ngữ đang làm. Việc cache bừa có thể dẫn đến xuất hiện rác hoặc lỗi phiên bản sau khi build.</p>
+</blockquote>
+<p>Vấn đề đang gặp phải:</p>
+<ul>
+<li><strong>Cần giảm thời gian build app</strong></li>
+<li>Code đã change ~&gt; <strong>không thể cache bằng image layer cache</strong></li>
+<li>Có thể tối ưu build cache được nếu framework hỗ trợ. Ví dụ: <a href="https://nextjs.org/docs/pages/building-your-application/deploying/ci-build-caching">NextJS build cache https://nextjs.org/docs/pages/building-your-application/deploying/ci-build-caching</a>, <a href="https://dev.to/manthanank/configuring-build-cache-in-angular-app-546p">Angular build cache https://dev.to/manthanank/configuring-build-cache-in-angular-app-546p</a></li>
+</ul>
+<p>~&gt; Idea là <strong>save được cái path cache</strong> tương ứng với từng framework đó để dùng <strong>giữa các lần build</strong>.</p>
+<p>~&gt; <strong>Tìm cách lưu giữ lại cái path cache đó giữa các lần build</strong>.</p>
+<p>Ok, ý tưởng đã có, giờ bắt tay vô làm.</p>
+<p>Mặc dù ý tưởng nghe thì rất đơn giản, tìm cách save lại cái path cache đó giữa các lần build là xong thôi. Tuy nhiên 1 rào cản rất lớn chính là cái path cache đó lại tồn tại trong docker image chứ không phải nơi gitlab runner chạy script để có thể sử dụng tính năng cache của gitlab CI.</p>
+<p>Ứng dụng của tại hạ là NextJS, do đó path cache của nó sẽ là <code>.next/cache</code>. Giờ ta sẽ tìm cách lưu lại cái path này</p>
+<p>Những cách tại hạ đã thử (và fail lòi):</p>
+<ul>
+<li>Thử <strong>bind mount</strong> của docker buildkit khi <strong>build image</strong>. Tức là mount 1 folder từ bên ngoài vào quá trình build image như <a href="https://docs.docker.com/build/guide/mounts/#add-bind-mounts">https://docs.docker.com/build/guide/mounts/#add-bind-mounts</a>. Ta mount cái <code>.next/cache</code> ra ngoài host và <strong>hy vọng</strong> quá trình sau quá trình build của docker sẽ ghi file ra ngoài host. Nhưng nó không hoạt động như vậy. <strong>Những thay đổi trong cái thư mục bind mount trong quá trình build sẽ KHÔNG ĐƯỢC PHẢN ÁNH Ở NGOÀI HOST</strong></li>
+<li>Thử <strong>cache mount</strong> của docker buildkit khi <strong>build image</strong>. Oh, nó sẽ lưu giữ được <code>.next/cache</code> giữ các lần build. Nhưng việc cache này được thằng buildkit nó lưu và chỉ work với trường hợp mount docker sock như tại hạ đang làm, mà cũng chỉ work trên cùng 1 host build chứ đổi host khác là tèo ~&gt; Bỏ.</li>
+<li>Chạy thằng builder thành container, mount host volume để copy thư mục <code>.next/cache</code> ra host folder và dùng gitlab ci cache để lưu lại. Tuy nhiên sau đó tại hạ nhanh chóng nhận ra với việc mount docker sock thì container đang chạy script và container mới tạo đó là <strong>anh em</strong> (chứ không phải <strong>cha con</strong> như docker-in-docker). Tức là thằng container builder kia nó mount ra <strong>host</strong> thì mình đang đứng trong container chạy job cũng không đọc được ~&gt; Bỏ.</li>
+</ul>
+<p>Giữa lúc tưởng chừng mọi thứ bế tắc, thì tại hạ đột nhiên nhận ra 1 sự thật:</p>
+<ul>
+<li>Cái thư mục <code>.next/cache</code> mà ta đang muốn cache, thực chất nó vẫn <strong>ở trong cái $IMAGE_TAG_BUILDER</strong> mà tại hạ pull từ lúc đầu để làm cache docker layer.</li>
+<li>Docker layer không thể cache được chỗ đó vì dính <code>COPY . .</code>, nhưng cái mà tại hạ cần giữ giữa 2 lần build là cái thư mục <code>.next/cache</code></li>
+</ul>
+<p>~&gt; <strong>Copy nó từ image cũ ra trước khi build là được!!!</strong></p>
+<p>Vậy là sửa lại 1 chút cái <code>.gitlab-ci.yml</code> để nó copy folder <code>.next/cache</code> từ image cũ ra trước khi build.</p>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG_BUILDER:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/builder:latest</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">DOCKER_BUILDKIT:</span> <span class="hljs-string">&#x27;1&#x27;</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+    <span class="hljs-comment"># Make .next directory</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">mkdir</span> <span class="hljs-string">-p</span> <span class="hljs-string">.next</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">pull</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">||</span> <span class="hljs-string">echo</span> <span class="hljs-string">&quot;Old image not exists, build from scratch&quot;</span>
+    <span class="hljs-comment"># Copy cache folder from image </span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">image</span> <span class="hljs-string">inspect</span> <span class="hljs-string">&quot;$IMAGE_TAG_BUILDER&quot;</span> <span class="hljs-string">&amp;&gt;</span> <span class="hljs-string">/dev/null</span> <span class="hljs-string">&amp;&amp;</span> <span class="hljs-string">container_id=$(docker</span> <span class="hljs-string">create</span> <span class="hljs-string">&quot;$IMAGE_TAG_BUILDER&quot;</span><span class="hljs-string">)</span> <span class="hljs-string">&amp;&amp;</span> <span class="hljs-string">docker</span> <span class="hljs-string">cp</span> <span class="hljs-string">&quot;$container_id:/app/.next/cache&quot;</span> <span class="hljs-string">.next/</span> <span class="hljs-string">&amp;&amp;</span> <span class="hljs-string">docker</span> <span class="hljs-string">rm</span> <span class="hljs-string">&quot;$container_id&quot;</span> <span class="hljs-string">||</span> <span class="hljs-string">echo</span> <span class="hljs-string">&quot;Image $IMAGE_TAG_BUILDER does not exist. Doing nothing.&quot;</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">--target=builder</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span>
+</code></pre>
+<blockquote>
+<p><strong>Tips:</strong> Bạn không cần phải run 1 container để copy file bên trong ra mà chỉ cần <strong>create container</strong> là đủ.</p>
+</blockquote>
+<p>Chỗ này để có thể hoạt động được thì phải thêm dòng sau vào <code>.dockerignore</code> để nó ignore thư mục <code>.next</code> nhưng bỏ qua thư mục <code>.next/cache</code> thì mới có thể copy được thư mục <code>.next/cache</code> vào build context nhé:</p>
+<pre><code class="language-bash"><span class="hljs-comment"># other content</span>
+
+.next
+!.next/cache
+</code></pre>
+<p>Xong, hãy kiểm tra thành quả khi chỉ đổi code 1 chút và build lại:</p>
+<p><img src="img/day-302/image-9.webp" alt="image.png"></p>
+<p>Xem lại phần detail job, các bạn sẽ thấy lệnh <code>yarn build</code> dù không được docker layer cache nhưng chạy với thời gian chỉ 13s thay vì 38s như những lần build trước đó.</p>
+<h2 id="ngoài-lề-đặt-tên-docker-image-tối-ưu-cho-cicd">Ngoài lề: Đặt tên docker image tối ưu cho CI/CD</h2>
+<p>Đặt tên luôn là một vấn đề khó, từ bên biến tới tên hàm và giờ là tên image. Làm sao để nó đáp ứng được rất nhiều nhu cầu (mà thường lúc đặt tên chúng ta không nghĩ tới)? Chỉ có thể xuất phát từ trải nghiệm và kinh nghiệm mà thôi. Đến 1 lúc nào đó, bạn gặp một nhu cầu mà cái tên cũ không đáp ứng được, thì bạn sẽ có kinh nghiệm cho lần sau.</p>
+<p>Còn đây là một số kinh nghiệm từ việc đặt tên image của tại hạ. Có thể những cái tên này chỉ đáp ứng với nhu cầu nhất định và không fit với nhu cầu của các bạn. Nhưng hãy lấy những nhu cầu này để tham khảo xem mình có tận dụng được gì không nhé.</p>
+<p>Requirement:</p>
+<ul>
+<li>Mỗi lần build code phải sinh ra 1 tag riêng tương ứng, từ image tag cũng tra cứu lại được git history.</li>
+<li>Image tag dễ dàng thay thế được trong các file manifest GitOps bằng các tool CLI</li>
+<li>Giữ lại lịch sử 5 tag gần nhất để rollback</li>
+<li>Tách biệt môi trường (dev, stg, prod) với 5 tag lịch sử tương ứng</li>
+<li>Lưu trữ cả các image trung gian (ví dụ builder stage) để làm cache</li>
+</ul>
+<p>Từ những yêu cầu trên, đây là cách tại hạ đặt tên cho image:</p>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">RUNTIME_IMAGE_TAG:</span> <span class="hljs-string">runtime-$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">RUNTIME_IMAGE:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:runtime-$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">BUILDER_IMAGE:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME/builder:latest</span>
+</code></pre>
+<ul>
+<li>Ở đây tại hạ sử dụng <code>runtime-$CI_COMMIT_SHORT_SHA</code> để đánh tag cho runtime image. Sử dụng <code>$CI_COMMIT_SHORT_SHA</code> thay cho <code>$CI_COMMIT_SHA</code> để image tag ngắn hơn mà vẫn đáp ứng được tính unique. Thêm <code>runtime-</code> prefix để dễ dàng tìm ra cái tag này hơn bằng các tool cli như <code>sed</code> khi edit manifest trong GitOps.</li>
+<li>Thêm <code>$CI_COMMIT_REF_NAME</code> vào tên image là để tách biệt image giữa các môi trường (bằng branch) khác nhau. Do đó có thể set được cleanup policy 5 tag gần nhất. Nếu không có yếu tố này mà chỉ có <code>$CI_REGISTRY_IMAGE:runtime-$CI_COMMIT_SHORT_SHA</code> thì sẽ không thể clean được khi image ở các môi trường lẫn vào nhau và nhiều khi clean image cũ sẽ khiến môi trường đang chạy bị lỗi.</li>
+<li>Đặt tên builder image với <code>/builder</code> và tag <code>latest</code> vì image builder chỉ cần 1 image làm cache và phải tách bạch phần tên với runtime image. Đừng đặt tên builder image kiểu <code>$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:builder</code> vì nó cũng bị lẫn với image runtime và cleanup cũng phải set rule đặc biệt đó.</li>
+</ul>
+<p>Sau đó chúng ta có thể setup cleanup rule như sau để Gitlab tự động xóa bớt image cũ không xài tới (và làm nặng repo lên rất rất nhiều)</p>
+<p><img src="img/day-302/image-10.webp" alt="image.png"></p>
+<h2 id="tổng-kết">Tổng kết</h2>
+<p>Tóm tắt bí kíp bằng 3 chiêu thức chính:</p>
+<ul>
+<li><strong>Setup self-hosted Gitlab runner để build được docker image</strong></li>
+<li><strong>Sử dụng docker layer cache để tối ưu các step install dependencies</strong></li>
+<li><strong>Trích xuất cache folder từ image cũ để tối ưu các step build code</strong></li>
+</ul>
+<p>Bonus thêm cho các vị huynh đài chiêu thức phụ: <strong>Đặt tên docker image để phù hợp với quá trình CI/CD</strong></p>
+<p>Project được lấy làm ví dụ trong bài để anh em tham khảo quá trình CI/CD: <a href="https://gitlab.com/minhpq331/next-ecommerce/-/pipelines">https://gitlab.com/minhpq331/next-ecommerce/-/pipelines</a></p>
+<p>Hết rồi. Upvote cho sự tái xuất giang hồ này của tại hạ nhé.</p>
+ 
     </body>
 </html>
