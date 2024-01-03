@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title></title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="style.css" rel="stylesheet">
+        <link href="grayscale.css" rel="stylesheet">
+        <link href="interface.css" rel="stylesheet" media="screen">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Crimson+Pro:ital,wght@0,400;0,600;0,800;1,400;1,600;1,800&family=Roboto+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+        <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
+        <script src="toc.js"></script>
+        <script>
+            class handlers extends Paged.Handler {
+                constructor(chunker, polisher, caller) {
+                super(chunker, polisher, caller);
+                }
+
+                beforeParsed(content) {
+                createToc({
+                    content: content,
+                    tocElement: "#table-of-content",
+                    titleElements: [".chapter-cover .chapter-name h1"],
+                });
+                }
+            }
+            Paged.registerHandlers(handlers);
+        </script>
+    </head>
+    <body>
+        <section class="table-of-content">
+            <h1>Table of Contents</h1>
+            <div id="table-of-content"></div>
+        </section>
+        
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="1" data-part="0">Function as useEffect's dependency</h1>
+                <div class="no-break"><i>Tác giả:</i> huytd</div>
+                <div class="no-break"><i>Chủ đề:</i> Front End, React</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">1</h1>
+                
+            </div>
+        </div>
+         <p>Khi sử dụng ESLint trong một dự án React, kiểu gì bạn cũng sẽ gặp tình huống mà bạn cho là vớ vẩn như sau: Bạn có một đoạn code xài useEffect, trong đó bạn gọi một function, thường thì function này được tạo ra ngay trong component hiện tại luôn, ví dụ:</p>
+<pre><code>const doSomething = (someValue) =&gt; {
+    // ...do something with someValue...
+}
+
+useEffect(() =&gt; {
+   if (someValue) {
+      doSomething(someValue)
+   }
+}, [someValue])
+</code></pre>
+<p>Và bạn sẽ bị ESLint quăng ngay một câu complain vô mặt:</p>
+<blockquote>
+<p>React Hook useEffect has a missing dependency: ‘doSomething’. Either include it or remove the dependency array</p>
+</blockquote>
+<p>Đây là warning từ plugin <code>eslint-plugin-react-hooks</code>, đại ý của nó là: “Ê sao mày xài hàm doSomething trong useEffect, mà không cho doSomething vào danh sách dependencies?”</p>
+<p>“Tào lao hết sức!” – bạn nghĩ. Nó là một cái hàm chứ có phải value quái gì đâu mà phải bỏ vô dependency list???</p>
+<p>Vậy đây có phải là bug của <code>eslint-plugin-react-hooks</code> không? Đáng ra chỉ nên áp dụng rule này lên các giá trị thông thường thôi, sao còn áp dụng với cả function?</p>
+<p>Lý do là: Function cũng là các object, và trong React (functional component), chúng cũng được khởi tạo lại sau mỗi lần render giống như mọi object khác. Vậy nên, dù function của bạn không đổi, thì trên thực tế sau mỗi lần render, chúng ta đều có một instance mới của cái function đó được tạo ra.Để ví dụ rõ hơn, có thể xem qua trường hợp chúng ta dùng giá trị của một state ở trong function:</p>
+<pre><code>const [name, setName] = useState(&quot;&quot;)
+
+const sayHello = () =&gt; {
+   console.log(`Hello, ${name}`)
+}
+
+useEffect(() =&gt; {
+   sayHello()
+}, [name])
+</code></pre>
+<p>Ở ví dụ trên, vì name là một state value, nó có thể thay đổi bất cứ lúc nào và khiến cho component bị re-render. Hàm sayHello sử dụng giá trị của name, nên đương nhiên nó là một đối tượng có khả năng thay đổi giống như state. Chính vì thế mà các function cũng được đưa vào diện cần đưa vào dependency list của useEffect.</p>
+<p>Rồi, đã hiểu vấn đề, vậy khi gặp tình huống này thì làm sao để fix? Có nhiều cách để giải quyết vấn đề này, tuỳ theo implementation của function cần xử lý.</p>
+<p>Nếu function không sử dụng value hay state nào của component hiện tại thì có thể move nó ra khỏi component:</p>
+<pre><code>const sayHello = (name: string) =&gt; {
+   console.log(&quot;Hello&quot;)
+}
+
+const Component = () =&gt; {
+   const [name, setName] = useState(&quot;&quot;)
+
+   useEffect(() =&gt; {
+      sayHello(name)
+   }, [name])
+}
+</code></pre>
+<p>Nếu function có sử dụng value hay state thuộc component hiện tại, thì có thể define function này bên trong khối useEffect:</p>
+<pre><code>const Component = () =&gt; {
+   const [name, setName] = useState(&quot;&quot;)
+   const [age, setAge] = useState(&quot;&quot;)
+
+   useEffect(() =&gt; {
+      const sayHello = () =&gt; {
+         console.log(`I am ${name}, I am ${age} yo`)
+      }
+
+      sayHello()
+   }, [name, age])
+}
+</code></pre>
+<p>Lưu ý là, bạn phải đưa luôn toàn bộ những state mà function đó sử dụng vào dependency list luôn (vì function của bạn phụ thuộc vào những state đó).</p>
+<p>Một cách khác là sử dụng useCallback hook để memoize function này sau mỗi lần render, tuỳ thuộc vào giá trị của các state mà function này sử dụng:</p>
+<pre><code>const Component = () =&gt; {
+   const sayHello = useCallback(() =&gt; {
+      ...
+   }, [/* danh sách state mà function cần */])
+
+   useEffect(() =&gt; {
+      if (age &gt; 0) {
+          sayHello()
+      }
+   }, [age, sayHello])
+}
+</code></pre>
+<p>Xài cách này, bạn vẫn phải đưa function này vào danh sách dependency như cách trước, nhưng có sự phân chia trong danh sách dependency rõ ràng hơn.</p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="2" data-part="0">You can’t simply send a UDP packet in web browser</h1>
+                <div class="no-break"><i>Tác giả:</i> giongto35</div>
+                <div class="no-break"><i>Chủ đề:</i> Front End, Networking</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">2</h1>
+                
+            </div>
+        </div>
+         <p>Thường trong khi đi học về network, chúng ta thường gặp câu hỏi là: trong các trường hợp mình đòi hỏi độ trễ thấp và không quan tâm packet sẽ bị rơi rớt giữa chừng, như video stream hoặc multiplayer game, thì network protocol nào nên sử dụng? Câu trả lời ai cũng có trong đầu là sử dụng UDP.</p>
+<p>Tuy nhiên, một điều đáng ngạc nhiên (ít nhất đối với mình) là không có cách thuận tiện nào để gửi một gói tin UDP trên WebBrowser. WebSocket chỉ hỗ trợ giao thức TCP.</p>
+<p>Bài viết sẽ trả lời tại sao và chúng ta làm thế nào để sử dụng UDP network protocol trên Browser.</p>
+<p>&nbsp;</p>
+<h2 id="udp-vs-tcp">UDP vs TCP.</h2>
+<p>UDP và TCP là khái niệm cơ bản và ai cũng đã từng đọc qua nên mình chỉ nhắc lại nhanh chóng.</p>
+<p>UDP (Unreliable Data Protocol):</p>
+<ul>
+<li>UDP là connectionless, nghĩa là mình không tạo connection mà gửi packet đi luôn. UDP không cần các cơ chế như Handshake, Flow Control…</li>
+</ul>
+<p>TCP (Transmission Control Protocol):</p>
+<ul>
+<li>TCP đảm bảo data được gửi đi theo đúng thứ tự và reliable. TCP có các cơ chế như three-way handshake, flow control, connection termination để gửi packet một cách secure và duy trì smooth connection.</li>
+<li>Head-of-line blocking. Đây là vấn đề lớn nhất của TCP. Nếu một gói tin bị thất lạc, các gói tin tiếp theo sẽ đợi cho đến khi gói tin bị mất được gửi đi, ảnh hưởng đến throughput và latency.</li>
+</ul>
+<h2 id="nền-tảng-của-web-browser-được-xây-dựng-trên-http">Nền tảng của web browser được xây dựng trên HTTP</h2>
+<p>HTTP/HTTPS là protocol chủ yếu để thực hiện request và response giữa browser và server. HTTP và HTTPS thường sử dụng port 80 và port 443. Vì là nền tảng mặc định, các ports này thường được Firewall cho phép outbound traffic.</p>
+<h2 id="websocket-được-xây-dựng-trên-httptcp">WebSocket được xây dựng trên HTTP/TCP.</h2>
+<p>WebSocket thường được dùng để tạo connection 2 chiều giữa client và server với low latency. WebSocket connection được tạo ra bằng bắt đầu bằng HTTP handshake và sau đó được upgrade lên Websocket protocol, tạo ra một full-duplex connection. Bằng cách dựa trên HTTP và các port mặc định của HTTP, WebSocket không yêu cầu mở thêm port cho connection và dễ dàng chấp thuận bởi Firewall. Tuy nhiên, cũng vì dựa trên HTTP, ta cũng phải sử dụng TCP cho Websocket.</p>
+<h2 id="vì-sao-udp-không-được-hỗ-trợ-sẵn-trong-các-trình-duyệt">Vì sao UDP không được hỗ trợ sẵn trong các trình duyệt?</h2>
+<p>UDP là connectionless và thiếu một số tính năng security có sẵn trong HTTPS (TLS). Vì không có connection nên packet nào nhìn cũng như nhau và 3rd party có thể chen vào giữa gửi packet, tạo ra rủi ro “Man In The Middle Attack”. Không có SSL nghĩa là gói tin không được mã hóa. Gói tin có thể bị giả danh hay sửa đổi trong quá trình gửi. UDP cũng không có flow control và congestion control như TCP. Điều này nghĩa là chúng ta không thể kiểm soát được lưu lượng UDP và dễ dẫn đến rủi ro DDoS từ trình duyệt web. Vì vậy, muốn sử dụng UDP trên WebBrowser, chúng ta cần thêm các layer phía trên hỗ trợ gửi UDP một cách an toàn.</p>
+<h2 id="ân-nhân-webrtc">Ân nhân WebRTC</h2>
+<p>WebRTC là một all-in-one protocol tổng hợp các protocol cho tầng transport, network, Video, NAT traverse, và hỗ trợ gửi UDP packet với mục đích then chốt để đạt được real-time p2p communication. Đầu tiên, nó được phát triển để cho ứng dụng Video Call nhưng sau đó hỗ trợ thêm Datagram cho phép gửi đi reliable hoặc unreliable packet.</p>
+<p>Cách tiếp cận này cho phép WebRTC có thể gửi và nhận, stream video với độ trễ cực thấp. Khác với các giao thức dựa trên HTTP trên các port 80 và 443, WebRTC cho phép thiết lập peer-to-peer connection giữa bất kỳ thiết bị nào. Thông thường, các kết nối inbound và outbound cần được firewall, router thông qua, và khi di chuyển giữa các hop trong network, địa chỉ ip cũng thay đổi. WebRTC đạt được quyền năng thông qua một cơ chế rất phức tạp gọi là ICE để thực hiện NAT Traverse (vượt tường lửa). Cơ chế này giúp thiết bị tìm public ip và public address mà giữa 2 thiết bị có thể lập connection được. Nói về cơ chế này sẽ còn rất nhiều nhưng ngoài nội dung của bài viết.</p>
+<p><img src="img/webrtc.png" alt=""></p>
+<p>Sau khi connection được thiết lập giữa 2 device, WebRTC sẽ cho phép bạn stream media hay gửi UDP datagram thông qua connection này. WebRTC sử dụng DTLS (Datagram TLS) nên UDP datagram dựa trên WebRTC cũng được đảm bảo security.</p>
+<h2 id="nhưng-rồi-webrtc-trở-nên-quá-phức-tạp-cho-mô-hình-client-server">Nhưng rồi WebRTC trở nên quá phức tạp cho mô hình client-server.</h2>
+<p>WebRTC rất ràng buộc về các protocol được phép sử dụng. SCTP, DTLS, RTP, SRTP, ICE và Video Codec (VP8, H264, OPUS). Mỗi cái term này lại là một vùng trời kiến thức đòi hỏi người sử dụng nắm bắt. Vì WebRTC, được thiết kế ban đầu cho Video Call và giao tiếp peer-to-peer, các tính năng liên quan đến NAT Traversal không cần thiết trong mô hình client-server. Về phía server, mình có toàn quyền quyết định network và port setting, không cần WebRTC làm hộ. Khởi tạo connection cũng là một chiều outbound từ client đến server chứ không phải là 2 chiều.</p>
+<p>Ngoài ra, bạn cũng không có nhiều khả năng thay đổi cách bạn muốn gửi packet nếu muốn sửa congestion/flow control. WebRTC là một cái blackbox mà nếu nó work thì work và không work thì bạn cũng không biết cách nào khác để làm nó tốt hơn.</p>
+<p>WebRTC hiện tại vẫn là cách phổ biến nhất để gửi UDP trong client-server architecture cho các ứng dụng yêu cầu độ trễ thấp như Video Stream, Cloud Gaming, Online Game; dù cho WebRTC hoàn toàn bắt đầu từ một nhu cầu khác. Yêu cầu gửi UDP packet tưởng chừng nghe cơ bản và nền tảng này đang lại trở thành một trở ngại lớn khi phát triển các sản phẩm đòi hỏi low latency ngày nay.</p>
+<h2 id="vậy-tương-lai-của-udp-là">Vậy tương lai của UDP là?</h2>
+<p>Có một số tiến triển đáng kể để việc sử dụng UDP trên WebBrowser ngày càng khả thi hơn. Chúng ta sẽ dành dịp khác để nói tiếp về nó.</p>
+<ul>
+<li>WebTransport: Hỗ trợ HTTP/3, giúp có thể thiết lập reliable hoặc unreliable transport. (<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebTransport">https://developer.mozilla.org/en-US/docs/Web/API/WebTransport</a>)</li>
+<li>WHIP/WHEP: WebRTC dựa trên HTTP. (<a href="https://www.ietf.org/archive/id/draft-ietf-wish-whip-01.html">https://www.ietf.org/archive/id/draft-ietf-wish-whip-01.html</a>)</li>
+</ul>
+<h2 id="tham-khảo-thêm">Tham khảo thêm</h2>
+<ul>
+<li>Agar.IO creator phàn nàn về WebSocket không có UDP và WebRTC quá phức tạp. (<a href="https://news.ycombinator.com/item?id=13264952">https://news.ycombinator.com/item?id=13264952</a>)</li>
+</ul>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="3" data-part="0">Tiny trees, in tiny pots 🌲</h1>
+                <div class="no-break"><i>Tác giả:</i> Bần làm vườn</div>
+                <div class="no-break"><i>Chủ đề:</i> Hobbies, Plant</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">3</h1>
+                
+            </div>
+        </div>
+         <p>Bonsai. I’m talking about bonsai. Lúc bắt đầu viết thì mình cũng hơi đắn đo không biết là bản thân có đủ qualified để viết về chủ đề này hay không. Nhưng suy cho cùng mục đích của mình ở đây không phải viết một cái comprehensive guide, để khi đọc xong mọi người trở thành bonsai expert. Sharing này mong có thể giúp các bạn hiểu hơn về bonsai, và inspire các bạn thử sức với hobby này.</p>
+<h2 id="what-is-bonsai">What is bonsai?</h2>
+<p>Bonsai là một từ tiếng Nhật. Và cũng như rất nhiều kỹ nghệ khác được người Nhật hoàn hảo hóa và nâng lên tầm cao mới, thì concept về bonsai vốn có xuất xứ từ… Trung Hoa cổ đại. Thời ấy họ rất xem trọng những vấn đề về phong thủy và cân bằng ngũ hành (chủ đề này thì thú thật mình mù). Một chậu Bonsai đóng vai trò như một mảng núi, mảng rừng thu nhỏ trong nhà, để đảm bảo sự cân bằng ngũ hành đó (mình đoán là mang tính kim và tính mộc or something). Sau hơn 3000 năm thì người ta vẫn thích bonsai, không hoàn toàn vì lý do phong thủy ban đầu nữa, mà chỉ đơn thuần như một cách để họ gần gũi với thiên nhiên hơn.Ok. Nếu vậy thì bonsai khác gì những cây trồng chậu khác? Một quyển sách về bonsai viết rằng, bonsai có hai tuổi. Tuổi thứ nhất là tuổi vật lý, sinh lý của nó. Tuổi thứ hai là tuổi nó đang mong muốn đóng giả. Bonsai không phải là một giống cây đặc biệt, có kích cỡ nhỏ bé ngay cả khi chúng già đi và phát triển tối đa. Bonsai là một cây trưởng thành, được cẩn thận uốn nén, cắt tỉa để giữ được tầm vóc thiếu nhi, nhưng mang dáng hình của một bô lão. Sẽ có một số style và loại cây được cho là phù hợp với tinh thần bonsai “truyền thống” hơn. Nhưng ở mức độ cơ bản, bất cứ loại cây nào cũng có thể trở thành bonsai nếu phù hợp với điều kiện trên.
+Bonsai is as cheap and interesting as you want it to be</p>
+<p>Mặc dù làm vườn được một thời gian nhưng mãi đến gần đây mình vẫn còn có ác cảm với bonsai. Bởi trong tiềm thức của mình, bonsai là một thú chơi đắt tiền và mang tính phù phiếm. Ngộ nhận này đến từ việc trước đây khi nghe người ta nói về bonsai, điều mà nhiều người quan tâm đến đầu tiên là giá trị vật chất. Nhà nào có nhiều bonsai thì nhà ấy chắc hẳn là giàu. Nhiều người sưu tầm bonsai cũng chỉ xem nó như một món hàng hóa xa xỉ, giá trị cao. Thực tế đó là đúng. Có một thực tế khác cũng đúng là có được một cây bonsai đẹp rất khó, phải trả qua rất nhiều năm, và vì vậy giá trị cao của nó là có căn cứ.Tuy nhiên điểm mấu chốt ở đây là, bonsai không chỉ là thú chơi sở hữu. Với mình nó là một quá trình, và quá trình đó có một cái barrier of entry rất thấp, bắt nguồn từ ý mình đã nêu ở trên: bất cứ cây gì cũng có khả năng trở thành bonsai. Và khi tự mình không đặt nặng vấn đề làm bonsai thế nào để hợp thị hiếu và cho được giá, thì khi tham gia cuộc chơi mình sẽ có tinh thần thoải mái và được giải phóng khỏi những ràng buộc khuôn khổ. Mọi người có thể search từ khóa bonchi (bonsai chili) để minh chứng cho việc cây nào cũng có thể làm bonsai được (yes, ngay cả 🍁).</p>
+<h2 id="how-to-start-making-a-bonsai">How to start making a bonsai?</h2>
+<p>Khi làm bonsai người ta sẽ xuất phát từ hai hướng. Một là họ sẽ trồng từ cây con, bắt đầu uốn nắn nó ngay từ nhỏ. Hai là họ sẽ tìm một gốc cây đẹp, trong tự nhiên, hoặc là mua hay xin lại từ ai đó, và họ sẽ tạo dáng lại phần nhánh. Phương án một rất dễ và rất tiết kiệm để bắt đầu, và mình cũng recommend mọi người đi theo hướng đó. Tất nhiên là nó sẽ mất nhiều thời gian hơn, but hey, it’s part of the journey.:spiral_note_pad: Mình gửi ở đây list một vài loài cây thường được dùng làm bonsai và phù hợp với khí hậu VN:</p>
+<p>…</p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="5" data-part="0">border-radius thực sự là gì?</h1>
+                <div class="no-break"><i>Tác giả:</i> ZeroX-DG</div>
+                <div class="no-break"><i>Chủ đề:</i> Front End, CSS</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">5</h1>
+                
+            </div>
+        </div>
+         <p>Các bạn đọc tựa xong sẽ nghĩ: “ơ ông này vớ vẩn, border-radius để bo góc mấy cái div chứ làm gì?”</p>
+<p>Hmmm nhưng bạn đã bao giờ tự hỏi, cái giá trị <code>18px</code> hay <code>50%</code> được pass vào <code>border-radius</code> nghĩa là gì?</p>
+<p>Thực chất <code>border-radius</code> là một shorthand property cho 4 CSS properties khác. Nên khi viết:</p>
+<pre><code class="language-css"><span class="hljs-attribute">border-radius</span>: <span class="hljs-number">18px</span>;
+</code></pre>
+<p>Bạn đang viết tắt cho:</p>
+<pre><code class="language-css"><span class="hljs-attribute">border-top-left-radius</span>: <span class="hljs-number">18px</span>;
+<span class="hljs-attribute">border-top-right-radius</span>: <span class="hljs-number">18px</span>;
+<span class="hljs-attribute">border-bottom-left-radius</span>: <span class="hljs-number">18px</span>;
+<span class="hljs-attribute">border-bottom-right-radius</span>: <span class="hljs-number">18px</span>;
+</code></pre>
+<p>4 properties này đại diện cho 4 góc của 1 element box (top left, top right, bottom left và bottom right), và browser dùng cái value bạn đưa vào để vẽ 1 đường con kết nối 2 cạnh của góc cần bo. Làm thế nào á? Câu trả lời nằm trong cái tên radius.</p>
+<p>Radius là bán kính hình tròn. Khi vẽ cái đường cong này, browser sẽ dùng cái bán kính đó để tính ra toạ độ của tâm hình tròn:</p>
+<pre><code>x_circle = x_div_corner + border_radius (or -border_radius if it&#x27;s the right edge)
+y_circle = y_div_corner + border_radius (or -border_radius if it&#x27;s the bottom edge)
+</code></pre>
+<p>Sau đó vẽ đường cong dùng cái toạ độ trên, và thêm vài thứ linh tinh như tuỳ vào góc là góc bên phải hay bên trái, trên hay dưới để vẽ cái đường cong theo chiều đồng hồ hoặc ngược etc (xem hình minh hoạ).</p>
+<p>Đó là lý do khi <code>border-radius</code> là <code>50%</code> và element box của bạn có width và height bằng nhau (tạo ra hình vuông) thì browser sẽ xác định tâm hình tròn ở giữa vị trí 50% width và 50% height tức là ở giữa hình vuông và kẻ 4 đường cong cho 4 góc tạo thành hình tròn.</p>
+<p>Tuy nhiên <code>border-radius</code> không chấp nhận giá trị &lt; 0 nên bạn không thể dùng số âm để bo góc ngược vô trong :laughing:</p>
+<p>Thế nhưng <code>border-radius</code> thực chất có thể chấp nhận tới 2 giá trị:</p>
+<pre><code class="language-css"><span class="hljs-attribute">border-top-left-radius</span>: <span class="hljs-number">10px</span> <span class="hljs-number">20px</span>;
+</code></pre>
+<p>Đây là vì radius không hẳn là bán kính của hình tròn mà là hình ellipse nên bạn có thể dùng 2 giá trị radius cho chiều thẳng và chiều ngang khác nhau (xem hình minh hoạ)</p>
+<p><strong>Hình minh hoạ:</strong></p>
+<p><img src="img/image1.png" alt="">
+<img src="img/image2.png" alt="">
+<img src="img/image3.png" alt=""></p>
+<p><strong>Đọc thêm:</strong></p>
+<ul>
+<li><code>border-radius</code> spec:  <a href="https://drafts.csswg.org/css-backgrounds/#border-radius">https://drafts.csswg.org/css-backgrounds/#border-radius</a></li>
+<li><code>border-radius</code> on CSS almanac: <a href="https://css-tricks.com/almanac/properties/b/border-radius/">https://css-tricks.com/almanac/properties/b/border-radius/</a></li>
+<li>Forward slash in <code>border-radius</code>: <a href="https://www.sitepoint.com/setting-css3-border-radius-with-slash-syntax/">https://www.sitepoint.com/setting-css3-border-radius-with-slash-syntax/</a></li>
+</ul>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="6" data-part="0">Backup App's local storage for testing on Android</h1>
+                <div class="no-break"><i>Tác giả:</i> tuna</div>
+                <div class="no-break"><i>Chủ đề:</i> Mobile, Android</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">6</h1>
+                
+            </div>
+        </div>
+         <h2 id="các-rắc-rối-với-local-storage">Các rắc rối với local storage</h2>
+<p>1 app mobile thường có 2 thành phần lưu trữ chính, <strong><em>local storage</em></strong> và <strong><em>remote storage</em></strong> (server side). Local storage có thể chỉ là phần phản ánh dữ liệu ở remote, nhưng cũng có thể chứa các config chỉ dành cho client.</p>
+<p>Ngoài ra, dữ liệu ở local còn có thể chứa session của user từ lúc đăng nhập. Khác với web app, người dùng ở client thường chỉ đăng nhập 1 lần và sử dụng. Quá trình đăng nhập với app cũng phiền phức hơn so với web app trên PC.</p>
+<p>Bên cạnh đó, khi làm việc với database, developer thường gặp một điều phiền phức là version của database thay đổi, dẫn đến việc phải clean data trước rồi mới có thể cài đặt (rất hay gặp khi vừa phải fix bug trên <code>release</code> branch, vừa phải dev feature mới trên <code>main</code> branch).
+Việc xoá dữ liệu local dẫn đến việc phải thực hiện lại hầu như từ đầu các thao tác để tái thiết lập dữ liệu, hoặc thậm chí dữ liệu test từ năm ngoái biến mất không thể khôi phục.</p>
+<p>Test migration cũng là một việc phức tạp và cần phải lặp lại nhiều lần để có độ tự tin cao. Tuy nhiên, một khi đã migrate lên version mới, dữ liệu cũ không thể lấy lại được. Muốn có dữ liệu cũ phải cài lại app version cũ và thực hiện lại các bước để tái tạo dữ liệu.</p>
+<p>Giải pháp cho những rắc rối trên chính là backup local storage để phục vụ cho việc test hoặc debug hoặc chỉ để tiết kiệm thời gian thiết lập môi trường dev cho tuỳ chỉnh khác, cũng giúp giảm chi phí cần phải có nhiều thiết bị để test cho nhiều môi trường khác nhau (ví dụ, 1 device để test cho account ở US, 1 device để test cho account ở VN, etc.).</p>
+<h2 id="vậy-làm-sao-để-backup-local-storage">Vậy làm sao để backup local storage?</h2>
+<p>Với Android, Device Explorer trên Android Studio có thể giúp chúng ta làm việc này khá dễ dàng, nhưng lại khá mất thời gian.
+Backup:</p>
+<ol>
+<li>Tìm app</li>
+<li>Tìm folder</li>
+<li>Save</li>
+<li>Chọn save location</li>
+</ol>
+<p>Khi restore, chúng ta cần làm lại các bước tương tự.</p>
+<p>Có cách nào để làm nhanh hơn không?
+Thật may mắn, câu trả lời là có. <code>adb</code> kết hợp với <code>dd</code> là một công cụ mạnh mẽ để làm được việc này. Xem thêm chi tiết chém gió <a href="https://iamtuna.org/2023-10-08/use-adb-backup-restore-local-data-2">ở đây</a>.</p>
+<h3 id="ý-tưởng-cơ-bản">Ý tưởng cơ bản:</h3>
+<p><strong>Backup</strong></p>
+<ol>
+<li>Nén các thư mục cần backup vào 1 file <code>.gz</code></li>
+<li>Copy file <code>.gz</code> vào <code>sdcard</code> (dù tên là sdcard nhưng Android sẽ trỏ tới external storage) bằng Unix pipe và <code>dd</code><pre><code class="language-bash">adb shell <span class="hljs-string">&quot;run-as ...&quot;</span> | adb shell <span class="hljs-string">&quot;dd of=/sdcard/...&quot;</span>
+</code></pre>
+<strong>Restore</strong></li>
+<li>Copy file từ sdcard vào app’s dir bằng dd và Unix pipe<pre><code class="language-bash">adb shell <span class="hljs-string">&quot;dd if=/sdcard/...&quot;</span> | adb shell <span class="hljs-string">&quot;run-as ...&quot;</span>
+</code></pre>
+</li>
+<li>Giải nén và thay các thư mục tương ứng của app bằng nội dung trong backup.</li>
+</ol>
+<p>Xem script chi tiết ở repo này: <a href="https://github.com/tuanchauict/android-localstorage-backup/">https://github.com/tuanchauict/android-localstorage-backup/</a> (mirror from my scripts at work, not tested for general debuggable apps).</p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="7" data-part="0">Network packet journey in Docker bridge</h1>
+                <div class="no-break"><i>Tác giả:</i> kien (ntk148v)</div>
+                <div class="no-break"><i>Chủ đề:</i> Networking, DevOps</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">7</h1>
+                
+            </div>
+        </div>
+         <p>Trong phạm vi của tài liệu này, chúng ta sẽ chỉ nói đến bridge mặc định của Docker: <code>docker0</code>, không tính đến các user-defined bridge network. Như đã nói ở trên, Docker daemon sử dụng iptables để kiểm soát, điều hướng kết nối ra/vào các containers.</p>
+<p>Để dễ hình dung, lấy một ví dụ như sau, chúng ta có một webserver chạy container:</p>
+<ul>
+<li>Network bridge và expose port 8000 trên host server.</li>
+<li>Host server có ip 10.0.10.26, docker0 sub-network 172.17.0.0/16.</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image1.png" alt=""></p>
+<h2 id="1-luồng-packet-với-kết-nối-từ-bên-ngoài-vào-trong-container">1. Luồng packet với kết nối từ bên ngoài vào trong container</h2>
+<p>Các chain <code>DOCKER</code>, <code>DOCKER-USER</code> và <code>DOCKER-ISOLATION-STAGE-*</code> đều do Docker daemon khởi tạo, có thể kiểm tra bằng các lệnh sau:</p>
+<pre><code class="language-shell">iptables -t nat -S
+iptables -S
+</code></pre>
+<p>Sau đây là flow di chuyển:</p>
+<ul>
+<li>Gửi request từ host bên ngoài đến endpoint 10.0.10.26:8000</li>
+<li>(1) <code>-t nat -A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER</code><ul>
+<li>Packet chuyển đến chain DOCKER (nat)</li>
+</ul>
+</li>
+<li>(2) -<code>t nat -A DOCKER ! -i docker0 -p tcp -m tcp --dport 8000 -j DNAT --to-destination 172.17.0.2:8000</code><ul>
+<li>DNAT, chuyển destination ip thành ip dải bridge 172.17.0.2</li>
+</ul>
+</li>
+<li>(3) <code>-t filter -A FORWARD -j DOCKER-USER</code><ul>
+<li>Packet đến chain FOWARD (filter), được chuyển đến chain DOCKER-USER (filter). Tại đây, packet đi qua các rules được người dùng định nghĩa, nếu không có rule DROP/REJECT nào thì sẽ trả về chain FOWARD (filter) (4) để thực hiện rule tiếp theo của chain FORWARD.</li>
+</ul>
+</li>
+<li>(5) <code>-t filter -A FORWARD -j DOCKER-ISOLATION-STAGE-1</code><ul>
+<li>Tương tự như chain DOCKER-USER (filter), không có rule nào thì trả về chain FOWARD (filter) (6). Nếu có rule match thì chuyển sang DOCKER-ISOLATION-STAGE-2.</li>
+</ul>
+</li>
+<li>(7) <code>-t filter -A FORWARD -o docker0 -j DOCKER</code><ul>
+<li>Packet chuyển đến chain DOCKER (filter), output docker0. Docker daemon tạo các rule dựa theo expose ports config của container, và tự động thêm vào chain DOCKER (filter).</li>
+</ul>
+</li>
+<li>(8) <code>-t filter -A DOCKER -d 172.17.0.2/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport 8000 -j ACCEPT</code><ul>
+<li>Tại chain DOCKEr (filter), packet match rule, được accept.</li>
+</ul>
+</li>
+<li>(9) Packet đi đến container để xử lý.</li>
+<li>(10) Ở chiều ra, packet đi ra chain OUTPUT -&gt; chain POSTROUTING (nat) để thực hiện SNAT.</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image2.png" alt=""></p>
+<h2 id="2-luồng-packet-với-kết-nối-giữa-các-container-trong-cùng-network-bridge">2. Luồng packet với kết nối giữa các container trong cùng network bridge</h2>
+<p>Khởi tạo thêm một container nữa, cùng bridge default docker0 với container webserver hiện có. Từ container mới, thực hiện gửi request đến endpoint 10.0.10.26:8000 (dĩ nhiên trong cùng một network, container mới có thể gọi trực tiếp đến 172.17.0.2:8000 của container webserver, tuy nhiên chúng ta không bàn tới trường hợp đó). Luồng packet như sau:</p>
+<ul>
+<li>Packet đi theo default route về gateway docker0.</li>
+<li>Dựa theo rule iptables MASQUERADE, source host và destination port của packet thành 172.17.0.1 và 8000 (do tại ví dụ, chúng ta để exposed port giống port trong container, đều là 8000. Trong trường hợp port trong container là 80, destination port của container đổi thành 80):</li>
+</ul>
+<pre><code class="language-shell">iptables -t nat -A POSTROUTING -s 172.17.0.0/16 ! -o docker0 -j MASQUERADE
+</code></pre>
+<ul>
+<li>Packet đi đến container webserver.</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image3.png" alt=""></p>
+<h2 id="3-luồng-packet-với-kết-nối-giữa-container-sử-dụng-network-bridge-khác-nhau">3. Luồng packet với kết nối giữa container sử dụng network bridge khác nhau</h2>
+<p>Đối với trường hợp giao tiếp giữa các container thuộc các dải bridge network khác nhau, request đến endpoint 10.0.10.26:8000 khi đến container webserver sẽ có source 172.17.0.1. Đường đi của packet như sau:</p>
+<p><img src="https://raw.githubusercontent.com/ntk148v/til/master/docker/networking/images/image4.png" alt=""></p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="30" data-part="1">Xem đất 101</h1>
+                <div class="no-break"><i>Tác giả:</i> ledongthuc</div>
+                <div class="no-break"><i>Chủ đề:</i> Hobbies, Real Estate</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">30</h1>
+                <h4 class="no-break">1<sup>st</sup></h4>
+            </div>
+        </div>
+         <h1 id="xem-đất-101">Xem đất 101</h1>
+<p><del>Một người chị trong nghề từng nói: “Không tiền thì cạp đất mà ăn.”</del></p>
+<p>Trong suốt năm vừa qua, một người <strong>anh em</strong> của tôi có mua đất, tôi may mắn được đi theo vài lần nên có một vài kinh nghiệm nhỏ nhoi. Trong quá trình này, tôi đã ghi chép lại một số điểm quan trọng cần chú ý khi xem xét và có kế hoạch mua đất.</p>
+<p><strong>Disclaimer</strong>: Lưu ý rằng thông tin dưới đây mang tính chất chủ quan và đồng ý rằng nên kiểm tra thông tin trực tiếp.</p>
+<h2 id="1-loại-đất">1. Loại đất</h2>
+<h3 id="11-đất-dự-án">1.1. Đất Dự Án</h3>
+<p>Đất dự án, hay còn được biết đến như đất nền dự án, là những lô đất thuộc quy hoạch của chủ đầu tư, chưa có xây dựng, thường được phân lô và bán lại sau khi hạ tầng được xây dựng.</p>
+<p>Loại đất này thường được chính quyền duyệt và có quy hoạch chi tiết, bao gồm mật độ xây dựng, cây xanh, chiều cao xây dựng, và hạ tầng giao thông rõ ràng.</p>
+<p>Đây cũng là loại đất thường được các bạn sale chạy nhiều nhất. Và cũng là loại đất trong thời gian gần đây nhiều chủ đầu tư không uy tín bán nhất, vì để có thể bán được, chủ đầu tư phải đảm bảo:</p>
+<ul>
+<li>Xây dựng kết cấu hạ tầng công trình kết cấu hạ tầng theo quy hoạch chi tiết xây dựng 1/500 được cấp có thẩm quyền phê duyệt.</li>
+<li>Đảm bảo cung cấp các dịch vụ thiết yếu là cấp điện, cấp nước, thoát nước, thu gom rác thải.</li>
+<li>Chủ đầu tư hoàn thành nghĩa vụ tài chính liên quan đến đất đai ( tiền sử dụng đất, thuế, lệ phí, đền bù).</li>
+<li>Giấy chứng nhận hoặc quyết định giao đất/quyết định cho thuê đất.</li>
+<li>Giấy tờ xác minh hoàn thành nghĩa vụ tài chính của chủ đầu tư để được sử dụng đất hợp pháp.</li>
+<li>Giấy phép xây dựng.
+Nhưng thông thường, các chủ đầu tư sẽ cố gắng bán lô đất trước để có vốn xây dựng, nên sảy ra trường hợp đất đã mua rồi nhưng hạ tàng chưa xong và cũng không thể ra giấy tờ được. Trong vài năm trở lại đây, họ kêu gọi góp vốn dưới hình thức hợp đồng góp vốn. Đây là dạng hợp đồng hợp tác kinh doanh bất động sản dưới hình thức góp vốn đầu tư để có thể lách luật không thể bán đất nhưng vẫn có thể có vốn.</li>
+</ul>
+<h3 id="12-đất-thổ-cư">1.2. Đất thổ cư</h3>
+<p>Khác với đất dự án, đất thổ cư là đất mà người dân quản lý trực tiếp mà không thông qua chủ đầu tư. Đây bao gồm đất ở ở khu vực nông thôn và đô thị.</p>
+<p>Có hai loại đất thổ cư chính: đất thổ cư đô thị và đất thổ cư nông thôn, được ảnh hưởng bởi chính sách quản lý và quy hoạch địa phương.</p>
+<p>Đất thổ cư đô thị thuộc phường, thị trấn, quận, thành phố, thị xã hoặc khu quy hoặc đô thị mới. Trong khi đó đất thổ cư nông thôn thuộc khu vực nông thôn và do xã quản lý.</p>
+<p>Hai loại đất thổ cư này sẽ ảnh hưởng nhiều từ chính sách quản lý, được áp dụng chính sách thu thuế cũng như quy hoạch riêng. Vd ở một vài địa phương có đất thổ cư nông thôn mình biết có thể xây dựng không cần xin giấy phép nếu không có quy hoạch. Vị trí đất cũng ảnh hưởng nhiều tới quy định về diện tích tối thiểu để tách thửa, tách sổ.</p>
+<h3 id="13-đất-nông-nghiệp">1.3. Đất nông nghiệp</h3>
+<p>Đất nông nghiệp là loại đất được sử dụng chủ yếu cho mục đích trồng cây trồng, hoa màu, đất rừng, trồng cây lâu năm, trồng cây hàng năm, trồng lúa, rừng, nuôi trồng thuỷ sản, chăn nuôi gia súc.</p>
+<p>Đất nông nghiệp thường được mua nếu bạn có dự định làm nông, hoặc chờ quy hoạch để chuyển đổi mục đích sử dụng lên đất thổ cư.</p>
+<h2 id="2-pháp-lý">2. Pháp lý</h2>
+<h3 id="21-giấy-chứng-nhận-quyền-sử-dụng-đất-quyền-sở-hữu-nhà-ở-và-tài-sản-khác-gắn-liền-với-đất">2.1. Giấy chứng nhận quyền sử dụng đất, quyền sở hữu nhà ở và tài sản khác gắn liền với đất</h3>
+<p>Hay còn được gọi là sổ hồng, thường là giấy tờ pháp lý đầu tiên nên kiểm tra khi xem đất. Trên sổ sẽ có thông tin về:</p>
+<ul>
+<li>Loại đất</li>
+<li>Thời hạn sử dụng đất</li>
+<li>Thông tin về các phần được và không được công nhận từ phía có thẩm quyền</li>
+<li>Kích thước và hình dạng đất</li>
+<li>Toạ độ vị trí đất</li>
+</ul>
+<h3 id="22-quy-hoạch-đất-và-tranh-chấp">2.2. Quy hoạch đất và tranh chấp</h3>
+<p>Ngoài việc xem trên sổ hồng/sổ đỏ, thông tin quy hoạch và tranh chấp có thể lấy thông tin mới nhất từ Uỷ Ban Nhân Dân cấp xã, phường, thị trấn, phòng địa chính để xin thông tin quy hoạch của miếng đất. Hoặc cách mình hay sử dụng hơn là gửi phiếu yêu cầu thông tin quy hoạch đất tại văn phòng đăng ký đất đai tại địa phương ấy.</p>
+<p>Bằng việc thu thập thông tin quy hoạch đất, ta sẽ có thêm thông tin về:</p>
+<ul>
+<li>Diện tích và hình dạng phần đất thổ cư, và phi thổ cư.</li>
+<li>Những phần đất không được công nhận</li>
+<li>Phần diện tích sử dụng chung</li>
+<li>Phần đất được quy hoạch làm đường, cột điện cao thế, mương, đê điều, …</li>
+<li>Thông tin đất đang trong quá trình tranh chấp, kê biên để bảo đảm thi hành án</li>
+</ul>
+<p>Ngoài ra, còn một cách để thu thập thông tin nữa là thông qua hàng xóm, những người buôn bán gần đấy để xin thông tin.</p>
+<h2 id="3-hướng-đất">3. Hướng đất</h2>
+<p>Hướng đất ảnh hưởng nhiều tới quá trình sinh sống vì do ảnh hưởng của gió mùa, khí hậu, nắng và các yếu tố thời tiết, môi trường.
+Hướng đất hoàn toàn có thể khắc phục bằng cách xây cửa nhà/cổng/cửa sổ theo hướng khác. Dưới đây là một vài thông tin đúng so với đất ở miền nam Việt Nam.</p>
+<h3 id="31-đông">3.1. Đông</h3>
+<p>Hướng đông nhận nắng sớm, tốt cho sức khỏe. Tuy nhiên, có thể gặp khó khăn trong việc phơi đồ và nhận mưa vào mùa mưa.</p>
+<h3 id="32-tây">3.2. Tây</h3>
+<p>Hướng tây nhận ánh sáng mặt trời nhiều nhất, nhưng có thể nóng và chói lọi vào buổi chiều. Cần cân nhắc các biện pháp chống nóng.</p>
+<h3 id="33-nam">3.3. Nam</h3>
+<p>Hướng nam lưu thông gió tốt, đón sáng tối ưu. Tuy nhiên, cần đặc biệt chú ý đến nhiệt độ cao vào mùa hè.</p>
+<h3 id="34-bắc">3.4. Bắc</h3>
+<p>Hướng bắc mát mẻ vào mùa hè, nhưng có thể thiếu ánh sáng tự nhiên. Không thuận lợi cho việc trồng cây.</p>
+<h2 id="4-tiện-ích-xung-quanh">4. Tiện ích xung quanh</h2>
+<p>Tiện ích xung quanh đất ảnh hưởng rất nhiều đến giá trị và khả năng sử dụng của miếng đất. Một số tiện ích thường mình hay cây nhắc tới:</p>
+<ul>
+<li>Chợ &amp; siêu thị: gần chợ thì tiện, xô bồ, náo nhiệt. Xa chợ thì yên tĩnh, bất tiện.</li>
+<li>Khu dân cư hiện hữu</li>
+<li>Bệnh viện</li>
+<li>Trường học</li>
+<li>Giao thông, đường lớn, trục đường xe hàng, xe tải</li>
+<li>Hạ tầng nước, điện, internet</li>
+<li>Bãi rác</li>
+<li>Nhà máy nhiệt điện, nhà máy than, công xưởng, lò hoả thiêu, nhà máy dệt</li>
+</ul>
+<h2 id="kích-thước-hình-dạng-đất">Kích thước hình dạng đất</h2>
+<p>Kích thước và hình dạng đất là những yếu tố quan trọng khi chọn mua đất và có thể ảnh hưởng đến khả năng sử dụng và giá trị của tài sản. Các hình dạng đất thông dụng:</p>
+<ul>
+<li>Đất vuông vắn, không cắt, không cong. Ưu tiên hình vuông, chữ nhật.</li>
+<li>Đất hình thang nở hậu phía sau.</li>
+</ul>
+<p>Ngoài ra đất góc, đất cạnh cũng được ưu tiên.</p>
+<h1 id="tạm-kết">Tạm kết</h1>
+<p>Dù sao thì coi đất cũng dựa khá nhiều vào ý kiến chủ quan, nhưng nếu bạn xây nhà có len chân tường cao 1m2, thì nhà bạn chắc chắn đẹp nhé.</p>
+ 
+        <div class="chapter-cover">
+            <div class="chapter-name">
+                <h1 class="no-break" data-num="30" data-part="2">GitlabCI và tuyệt thế võ học tối ưu pipeline</h1>
+                <div class="no-break"><i>Tác giả:</i> Minh Monmen</div>
+                <div class="no-break"><i>Chủ đề:</i> DevOps, GitlabCI, Docker</div>
+            </div>
+            <div class="chapter-number">
+                <h3 class="no-break">Ngày thứ</h3>
+                <h1 class="no-break">30</h1>
+                <h4 class="no-break">2<sup>nd</sup></h4>
+            </div>
+        </div>
+         <h1 id="gitlabci-và-tuyệt-thế-võ-học-tối-ưu-pipeline">GitlabCI và tuyệt thế võ học tối ưu pipeline</h1>
+<p>Những tuyệt kỹ võ công cái thế với chiếc gậy của lão ăn mày - GitlabCI.</p>
+<h2 id="first-things-first">First things first</h2>
+<ul>
+<li>Em đang gặp vấn đề với GitlabCI vì build docker khá chậm, làm sao để tăng tốc nó lên anh?</li>
+<li>Mỗi lần code xong là em phải chờ 10-15 phút mới lên được môi trường dev, thay có mỗi cái ảnh thôi cũng build lại cả project!</li>
+<li>Sao chạy build bằng GitlabCI mà thời gian lại lâu gấp đôi build bằng Jenkin thế ạ?</li>
+</ul>
+<p><img src="img/day-302/image-1.webp" alt="image.png"></p>
+<p>Đây là những câu hỏi, những câu cảm thán trên không ít các diễn đàn, hội nhóm công nghệ. Người than thở thì cũng trải rộng từ Dev, System, DevOps,… chứ không phải ít. Điều này chứng tỏ mặc dù GitlabCI từ lâu đã trở thành tool CI “quốc dân” được đông đảo tầng lớp IT sử dụng, thế nhưng vẫn có rất nhiều người loay hoay không biết làm thế nào để sử dụng GitlabCI cho hợp lý và quan trọng hơn là cho nó nhanh.</p>
+<p>Nắm bắt được nhu cầu đó, tại hạ - <strong>Minh Monmen</strong> - thân là chân le ve trà nước đụng gì làm đó trong Cái Bang thôi nhưng được cái dùng GitlabCI cũng ngót nghét 8 mùa bánh chưng nên nay lãnh trọng trách biên soạn cuốn bí kíp tuyệt thế võ công xung quanh chiếc <strong>Đả Cẩu Bổng</strong> quen thuộc này.</p>
+<p>Vốn lâu nay tại hạ mai danh ẩn tích trên giang hồ, chỉ sinh hoạt ở vài hội kín chuyên chat chit trong giờ hành chính như webu, DevOps VN,… Thế nhưng thấy thế sự nguy cấp, dân chúng lầm than, tại hạ lòng đau như cắt, nước mắt đầm đìa, chỉ căm tức chưa xả… í lộn bài, chỉ hận không thể lập tức cứu khốn phò nguy, trấn an bá tánh mà chỉ có thể ngồi đây soạn ra cuốn tuyệt thế võ học này. Thôi thì kính mong chư vị huynh đài có đi qua đây thả cho 1 upvote và vài lời bình phẩm (comment) để bí kíp cái bang này hoàn thiện hơn.</p>
+<p>Bí kíp này sẽ tập trung vào những vấn đề xung quanh 1 môn võ duy nhất: <strong>Build docker image với GitlabCI</strong>.</p>
+<h2 id="cấp-độ-1-setup-self-hosted-gitlabci-runner-để-build-được-docker">Cấp độ 1: Setup self-hosted GitlabCI runner để build được docker</h2>
+<p>Để đọc được phần này thì tại hạ sẽ ngầm hiểu quý vị độc giả đã <strong>biết GitlabCI là cái gì</strong>, <strong>đã dùng thử GitlabCI</strong> và <strong>hiểu được self-hosted runner</strong> nghĩa là gì rồi. Và cũng ngầm hiểu luôn là quý vị đã đọc kỹ hướng dẫn này của gitlab về những phương pháp setup runner để build được docker image: <a href="https://docs.gitlab.com/ee/ci/docker/using_docker_build.html">https://docs.gitlab.com/ee/ci/docker/using_docker_build.html</a>.</p>
+<p>Đại khái thì để chạy được lệnh build của docker thì chúng ta cần 1 cái <strong>docker daemon</strong> được chạy ở đâu đó và Gitlab đã nói rất rõ về 3 phương pháp chính dùng để build docker trong job là:</p>
+<ul>
+<li>Sử dụng <strong>shell executor</strong>: Dùng <strong>shell của host</strong> do đó sẽ có quyền truy cập đến <strong>docker daemon của host</strong>.</li>
+<li>Sử dụng <strong>Docker-in-Docker</strong>: <strong>Chạy script trong container</strong> bằng docker / kubernetes executor và <strong>sử dụng docker daemon của 1 container đặc biệt</strong> chạy kèm là <strong>docker-in-docker</strong> (dind)</li>
+<li><strong>Mount docker socket</strong> vào container: Đây là kiểu lai giữa 2 thằng trên, <strong>chạy script trong container</strong> bằng docker executor nhưng lại sử dụng <strong>docker daemon của host</strong> thông qua việc mount cái <code>/var/run/docker.sock</code>.</li>
+</ul>
+<blockquote>
+<p><em>Còn 2 phương pháp ngoài lề nữa là dùng những thằng không phải docker để build image như là kaniko hay là buildah thì tại hạ sẽ không đề cập ở đây vì đơn giản là tại hạ xài thử lâu rồi và nó chậm quá, không phù hợp cho 1 bài về tối ưu tốc độ như này.</em> </p>
+</blockquote>
+<p>Mỗi phương pháp thì đều có điểm lợi hại riêng. Không có phương pháp nào là chuẩn chỉ mà việc lựa chọn 1 trong 3 phương pháp này dựa trên requirement của từng hệ thống và tradeoff mà thôi.</p>
+<p>Ví dụ như với hệ thống nghèo khó của tại hạ chỉ có 1 con VPS nho nhỏ dùng để chạy runner thì tại hạ sẽ chọn cách thứ 3 (mount docker socket) vì:</p>
+<ul>
+<li>Cách dùng <strong>shell executor</strong> thì không khoái vì nó không isolate được môi trường chạy script của tại hạ (do chạy chung trên shell của host). Do đó nó phụ thuộc rất nhiều vào môi trường của host. Chẳng hạn như host chạy node ver nào blablo. Bỏ qua ngay và luôn.</li>
+<li>Dùng <strong>Docker-in-Docker</strong> thì tại hạ đã từng setup rất nhiều, cả trên VM cả trên các loại K8S managed như GKE, EKS hay K8S tự setup bằng kops. Suck! Cái vũng lầy về kết nối TLS nó quá là sâu, mất quá nhiều thời gian quý báu của tại hạ và team. Nhất là cái giai đoạn docker ở version loanh quanh 1.19 nó lỗi lên lỗi xuống, vài hôm lại lỗi tè le mà chả thay đổi gì cũng chả hiểu tại sao. Thêm cái là nó chạy storage trong docker nên cũng chậm đi so với 2 cách build còn lại kha khá. Thôi thì hệ thống là của anh em, nên anh em có thể cân nhắc xài cũng ok, các phương pháp trong cuốn bí kíp này vẫn có thể áp dụng bình thường.</li>
+</ul>
+<p><img src="img/day-302/image-2.webp" alt="image.png"></p>
+<p>Chọn phương pháp mount docker socket vì nó đơn giản, nó work out of the box và rất ít phải thay đổi file gitlab-ci config (như dind là thêm env rồi service tá lả). Tất nhiên nó có vấn đề về security với host, nhưng tầm quan trọng của cái vấn đề đó với tại hạ không quá to để lấn át khoảng thời gian tiết kiệm được nhờ sử dụng nó.</p>
+<p>Ok, sau khi chúng ta đã có 1 con VPS có cài docker version mới nhất thì start gitlab runner với câu lệnh sau:</p>
+<pre><code class="language-bash">$ docker run -d --name gitlab-runner --restart always \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /srv/gitlab-runner/config:/etc/gitlab-runner \
+    gitlab/gitlab-runner:alpine
+</code></pre>
+<p>Sau đó chúng ta vô Gitlab, tạo mới 1 runner cho project hoặc cho group. Với flow cấp token mới của GitlabCI thì ta sẽ nhận được <code>authentication token</code> thay vì <code>registration token</code>. Do vậy sẽ cần chạy command sau để đăng ký runner:</p>
+<pre><code class="language-bash">$ <span class="hljs-built_in">export</span> RUNNER_AUTH_TOKEN=&lt;your_auth_token&gt;
+$ docker run --<span class="hljs-built_in">rm</span> -it -v /srv/gitlab-runner/config:/etc/gitlab-runner gitlab/gitlab-runner:alpine register --token <span class="hljs-variable">$RUNNER_AUTH_TOKEN</span>
+</code></pre>
+<p><img src="img/day-302/image-3.png" alt="image.png"></p>
+<p>Xong. Runner của chúng ta đã được config và tự động chạy, các bạn có thể chạy <code>docker logs gitlab-runner</code> để thấy config đã được reload. Tuy nhiên config mặc định này chưa mount docker socket vô job cho chúng ta, do đó hãy sửa lại file config <code>/srv/gitlab-runner/config/config.toml</code> chút đỉnh:</p>
+<pre><code>concurrent = 1
+check_interval = 0
+shutdown_timeout = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = &quot;test-runner&quot;
+  url = &quot;https://gitlab.com&quot;
+  id = 1234567
+  token = &quot;&lt;your_auth_token&gt;&quot;
+  token_obtained_at = 2023-12-28T18:10:15Z
+  token_expires_at = 0001-01-01T00:00:00Z
+  executor = &quot;docker&quot;
+  [runners.cache]
+    MaxUploadedArchiveSize = 0
+  [runners.docker]
+    tls_verify = false
+    image = &quot;docker:24.0.7&quot;
+    privileged = false
+    disable_entrypoint_overwrite = false
+    oom_kill_disable = false
+    disable_cache = false
+    volumes = [&quot;/var/run/docker.sock:/var/run/docker.sock&quot;, &quot;/cache&quot;]
+    shm_size = 0
+    network_mtu = 0
+    pull_policy = &quot;if-not-present&quot;
+</code></pre>
+<blockquote>
+<p>Tip trick: trong config này nếu để ý các bạn sẽ thấy ngoài thêm volume docker socket ra thì còn có thêm 1 cái config <code>pull_policy = &quot;if-not-present&quot;</code>. Config này dùng để hạn chế việc runner lần nào build cũng phải pull lại các image cơ bản như docker, dind hay node mà dùng luôn image với tag đó có sẵn trên host. Cái này <strong>tiết kiệm được rất nhiều</strong> thời gian và tiền bạc mỗi khi job chạy đấy nhé. Ngoài ra còn hạn chế việc bị Docker hub rate limit vì pull quá nhiều nữa.</p>
+</blockquote>
+<blockquote>
+<p>Tips 2: Sau khi edit config gitlab-runner sẽ tự reload lại chứ không cần restart thủ công đâu nhé.</p>
+</blockquote>
+<p>Tới đây là xong, thử ngay và luôn với project <code>next-ecommerce</code> sử dụng nextjs clone từ bên github với <code>Dockerfile</code> simple sau:</p>
+<pre><code class="language-Dockerfile"><span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>
+
+<span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /app</span>
+<span class="hljs-keyword">EXPOSE</span> <span class="hljs-number">3000</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> . .</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn install</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn build</span>
+
+<span class="hljs-keyword">CMD</span><span class="language-bash"> [<span class="hljs-string">&quot;npm&quot;</span>, <span class="hljs-string">&quot;run&quot;</span>, <span class="hljs-string">&quot;start&quot;</span>]</span>
+</code></pre>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+</code></pre>
+<p>Kết quả:</p>
+<p><img src="img/day-302/image-4.webp" alt="image.png"></p>
+<h2 id="cấp-độ-2-tối-ưu-docker-layer-cache">Cấp độ 2: Tối ưu docker layer cache</h2>
+<p>Tất nhiên, app trên của chúng ta chỉ là 1 cái example app, nên thời gian install dependencies và build rất nhanh. Chạy lần đầu không cache củng gì mất có 2 phút rưỡi.</p>
+<p>Tuy nhiên đến đây tổng thể luồng CI/CD sẽ xuất hiện các vấn đề chưa tối ưu:</p>
+<ul>
+<li><strong>Docker image nặng</strong></li>
+<li><strong>Thời gian mỗi lần build lại sẽ giống như lần đầu tiên</strong> dù chúng ta thay đổi code ít hay nhiều (hay thậm chí không đổi gì)</li>
+<li><strong>Đánh tag docker image chưa tốt</strong>: Mặc dù tag image theo commit sha là 1 cách làm phổ biến bởi nó đảm bảo tách biệt docker image giữa các lần build, cũng đảm bảo container orchestration sẽ pull đúng image khi chạy. Tuy nhiên kiểu tag đơn giản này sẽ làm docker registry sẽ đầy lên nhanh chóng mà không có rule cleanup nào phù hợp, không thể cleanup theo từng môi trường hay từng loại image vì chỉ có 1 loại tag duy nhất.</li>
+</ul>
+<p>Để giải quyết những vấn đề này thì mọi người hãy đọc thêm bài viết này: Docker image in production - câu chuyện 1GB hay 100MB - <a href="https://viblo.asia/p/docker-image-in-production-cau-chuyen-1gb-hay-100mb-LzD5dXyE5jY">https://viblo.asia/p/docker-image-in-production-cau-chuyen-1gb-hay-100mb-LzD5dXyE5jY</a> về cách giảm dung lượng docker image cũng như tổ chức lại layer trong Dockerfile để <strong>có thể cache</strong>.</p>
+<p>Tại hạ sẽ không nói lại những thứ đã có trong bài viết trên, tuy nhiên chỗ này sẽ nói thêm 1 chút về những layer thường xuất hiện trong 1 application bình thường:</p>
+<ul>
+<li><strong>Static config (WORKDIR, EXPOSE,…)</strong> là những layer gần như không bao giờ thay đổi, sẽ được đặt đầu tiên.</li>
+<li><strong>System dependencies (RUN apk add, apt install,…)</strong> là những layer cài đặt môi trường và những dependencies của system, rất rất ít thay đổi xếp tiếp theo.</li>
+<li><strong>Application dependencies (RUN composer install, npm install,…)</strong> là những layer cài đặt các dependencies của application, có tần suất thay đổi lớn hơn chút ít tùy thuộc vào dev cài đặt thêm thư viện gì cho project. Ở đây package manager sẽ thường cần 1 file config (vd package.json, composer.json,…) và 1 file lock (package-lock.json, yarn.lock, composer.lock,…) để khóa version thư viện. 2 file này sẽ được copy trước và cài đặt để tận dụng được cache khi chỉ có code thay đổi. Có rất nhiều project config sai, ignore file lock trong gitignore dẫn đến loạn version, lúc build được lúc không,… Các bạn nhớ để ý kỹ vì file lock là thứ <strong>cực kỳ quan trọng</strong> đó nhé. Ngôn ngữ nào, package manager nào cũng hướng đến implement cơ chế lock version này.</li>
+<li><strong>Application code (COPY . /app)</strong> là những layer chứa code của application, có tần suất thay đổi lớn nhất, từ layer này trở đi thường là không thể cache được bằng docker layer. Người ta chỉ hạn chế những lần build không cần thiết (kiểu chỉ sửa README.md, sửa gitlab-ci.yml,…) bằng việc ignore những file này trong <code>.dockerignore</code> để khi build docker không thấy sự thay đổi code và sử dụng cache.</li>
+<li><strong>Application build (RUN npm build, go build…)</strong>: một số application sẽ cần build trước khi chạy. Đây có thể là những bước rất tốn thời gian, nhưng không cache được bằng Docker. Do đó chúng ta sẽ xem xét tối ưu quá trình này ở cấp độ cao hơn.</li>
+</ul>
+<p>Sau khi áp dụng các phương pháp trong bài viết trên thì chúng ta có 1 cái <code>Dockerfile</code> được tối ưu hơn như sau:</p>
+<pre><code class="language-Dockerfile"><span class="hljs-comment"># Builder stage</span>
+<span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>-alpine AS builder
+
+<span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /app</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> package.json yarn.lock ./</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn install --pure-lockfile</span>
+<span class="hljs-comment"># ^ Cache docker layer above this line</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> . .</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn build</span>
+<span class="hljs-comment"># Remove dev dependencies</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> yarn install --pure-lockfile --prod </span>
+
+<span class="hljs-comment"># Runtime stage</span>
+<span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>-alpine
+
+<span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /app</span>
+<span class="hljs-keyword">EXPOSE</span> <span class="hljs-number">3000</span>
+
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/package.json /app/next.config.js /app/yarn.lock ./</span>
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/node_modules ./node_modules</span>
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/public ./public</span>
+<span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /app/.next ./.next</span>
+
+<span class="hljs-keyword">CMD</span><span class="language-bash"> [<span class="hljs-string">&quot;npm&quot;</span>, <span class="hljs-string">&quot;run&quot;</span>, <span class="hljs-string">&quot;start&quot;</span>]</span>
+</code></pre>
+<p>Vậy là docker image này đã <strong>có thể tận dụng được cache docker layer</strong> trong quá trình build. Các bạn có thể kiểm tra trên chính máy của mình bằng cách thử đổi code và build lại. Ngoài ra nó cũng đã được tối ưu về mặt dung lượng image để runtime image nhẹ nhất có thể. </p>
+<p><img src="img/day-302/image-5.jpg" alt="image.png"></p>
+<p>10 điểm, <strong>NHƯNG</strong> vầy là chưa đủ với quá trình CI/CD. Bởi vì Docker layer <strong>có thể</strong> cache được rồi, nhưng đấy là với trường hợp bạn đang build trên <strong>1 máy của bạn</strong>, cái <strong>docker daemon</strong> nó thấy có image layer cũ thì nó dùng. Còn với môi trường build của CI/CD thì có nhiều lý do để điều này không xảy ra:</p>
+<ul>
+<li>Sử dụng docker-in-docker. Lúc này docker daemon được chạy trong container, và không lưu lại gì cả giữa các lần build. Do đó không dùng được cache.</li>
+<li>Sử dụng mount docker.sock giống tại hạ ở trên, lúc này docker daemon của máy build sẽ chạy trên host, và có thể lưu lại cache giữa các lần build <strong>trên cùng 1 máy</strong>. Nếu các bạn setup runner khác chạy trên host khác thì cache cũng không dùng được. Hoặc lâu lâu phải clear bớt space trên con runner (nó rất là nhanh full disk nhé) thì cũng sẽ không dùng cache cũ nữa. Vậy là cache bị phụ thuộc vào con host chạy runner khá nhiều.</li>
+</ul>
+<p>Lúc này hãy chơi theo hướng dẫn này của Gitlab: <a href="https://docs.gitlab.com/ee/ci/docker/docker_layer_caching.html">https://docs.gitlab.com/ee/ci/docker/docker_layer_caching.html</a>. Ý tưởng ở đây là sẽ không phụ thuộc vào việc chạy build docker bằng dind hay là docker sock mà sẽ chủ động save lại docker image trên registry và pull về khi bắt đầu build. </p>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG_LATEST:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:latest</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">pull</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span> <span class="hljs-string">||</span> <span class="hljs-literal">true</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG_LATEST</span>
+</code></pre>
+<p>Tất nhiên là quá trình pull và push image lên registry sẽ tốn thêm thời gian / network. Tuy nhiên khi build những project lớn hơn có thời gian build from scratch tới 10-20p hay cả tiếng thì các bạn sẽ thấy cái này hoàn toàn chấp nhận được nhé.</p>
+<p><img src="img/day-302/image-6.webp" alt="image.png"></p>
+<p>Oops, nhưng có gì đó sai sai, chỗ này chỉ đổi code thôi mà thời gian build không khác nhiều so với lúc đầu. Kiểm tra ra thì hóa ra là đoạn <code>yarn install</code> vẫn chưa được cache (trong khi đáng lẽ là phải được cache rồi). Tại sao vậy?</p>
+<p><img src="img/day-302/image-7.png" alt="image.png"></p>
+<p>Chỗ này té ra là do cơ chế của thằng <strong>multi-stage</strong> build là <strong>chỉ lưu lại image ở stage cuối cùng</strong>. Do đó những layer trong stage builder <strong>không được lưu lại</strong>, do đó không được cache dù đủ điều kiện để sử dụng. Ok vậy thì chúng ta lại tiếp tục lưu lại thêm cả cái builder image nữa bằng chỉ dẫn <code>--target</code> khi chạy command <code>docker build</code>. Chỗ này ta cũng không cần thiết phải lưu lại image runtime latest nữa vì sẽ cần tập trung ở cache trong stage builder.</p>
+<blockquote>
+<p>Một lỗi nữa chỗ này các bạn sẽ gặp là để xài được <code>--cache-from</code> thì phải enable buildkit và thêm <code>--build-arg BUILDKIT_INLINE_CACHE=1</code> thì mới nhận nhé. <strong>KHÔNG CÓ LÀ NÓ KHÔNG WORK ĐÂU</strong></p>
+</blockquote>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG_BUILDER:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/builder:latest</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">DOCKER_BUILDKIT:</span> <span class="hljs-string">&#x27;1&#x27;</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">pull</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">||</span> <span class="hljs-literal">true</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">--target=builder</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span>
+</code></pre>
+<p>Ok, chỗ này đã ổn áp rồi :D. Các bạn có thể thử build lại và kiểm tra xem có cache được chưa.</p>
+<p><img src="img/day-302/image-8.webp" alt="image.png"></p>
+<h2 id="cấp-độ-3-tối-ưu-bước-build-code-bằng-việc-extract-folder-cache">Cấp độ 3: Tối ưu bước build code bằng việc extract folder cache</h2>
+<p>Đa số việc tối ưu gitlab-ci của các bạn sẽ dừng lại ở cấp độ 2. Phần lớn các bí kíp tối ưu trôi nổi trên thị trường cũng thường chỉ dừng lại ở cấp độ này vì nó đã đáp ứng được đa số yêu cầu và các tình huống thực tế rồi. Những gì tại hạ sắp làm tiếp theo đây là những bước tối ưu cao hơn nhưng có thể không cần thiết hoặc không quá hiệu quả với project của các bạn. Ở đây các bạn hãy tự cân nhắc và thử nghiệm với tech stack của mình xem làm đến đâu là hợp lý.</p>
+<p>Ở kết quả của cấp độ trước, cái chúng ta đạt được là cache được layer <code>RUN yarn install</code>, là layer ít khi thay đổi. Còn 1 quá trình nữa rất tốn thời gian mà gần như không thể cache được bằng docker image layer là quá trình build ứng dụng <code>RUN yarn build</code>. Quá trình này đặc biệt lâu đối với các project frontend kiểu react, vue hay angular. Ở bước này thì code của chúng ta đã thay đổi, do đó docker layer cache đã bị vô hiệu. Vậy có cách nào để giảm thời gian thêm với bước này không?</p>
+<blockquote>
+<p><strong>CẢNH BÁO:</strong> Việc tìm cách cache lại step build đòi hỏi phải hiểu rõ về framework / ngôn ngữ đang làm. Việc cache bừa có thể dẫn đến xuất hiện rác hoặc lỗi phiên bản sau khi build.</p>
+</blockquote>
+<p>Vấn đề đang gặp phải:</p>
+<ul>
+<li><strong>Cần giảm thời gian build app</strong></li>
+<li>Code đã change ~&gt; <strong>không thể cache bằng image layer cache</strong></li>
+<li>Có thể tối ưu build cache được nếu framework hỗ trợ. Ví dụ: <a href="https://nextjs.org/docs/pages/building-your-application/deploying/ci-build-caching">NextJS build cache https://nextjs.org/docs/pages/building-your-application/deploying/ci-build-caching</a>, <a href="https://dev.to/manthanank/configuring-build-cache-in-angular-app-546p">Angular build cache https://dev.to/manthanank/configuring-build-cache-in-angular-app-546p</a></li>
+</ul>
+<p>~&gt; Idea là <strong>save được cái path cache</strong> tương ứng với từng framework đó để dùng <strong>giữa các lần build</strong>.</p>
+<p>~&gt; <strong>Tìm cách lưu giữ lại cái path cache đó giữa các lần build</strong>.</p>
+<p>Ok, ý tưởng đã có, giờ bắt tay vô làm.</p>
+<p>Mặc dù ý tưởng nghe thì rất đơn giản, tìm cách save lại cái path cache đó giữa các lần build là xong thôi. Tuy nhiên 1 rào cản rất lớn chính là cái path cache đó lại tồn tại trong docker image chứ không phải nơi gitlab runner chạy script để có thể sử dụng tính năng cache của gitlab CI.</p>
+<p>Ứng dụng của tại hạ là NextJS, do đó path cache của nó sẽ là <code>.next/cache</code>. Giờ ta sẽ tìm cách lưu lại cái path này</p>
+<p>Những cách tại hạ đã thử (và fail lòi):</p>
+<ul>
+<li>Thử <strong>bind mount</strong> của docker buildkit khi <strong>build image</strong>. Tức là mount 1 folder từ bên ngoài vào quá trình build image như <a href="https://docs.docker.com/build/guide/mounts/#add-bind-mounts">https://docs.docker.com/build/guide/mounts/#add-bind-mounts</a>. Ta mount cái <code>.next/cache</code> ra ngoài host và <strong>hy vọng</strong> quá trình sau quá trình build của docker sẽ ghi file ra ngoài host. Nhưng nó không hoạt động như vậy. <strong>Những thay đổi trong cái thư mục bind mount trong quá trình build sẽ KHÔNG ĐƯỢC PHẢN ÁNH Ở NGOÀI HOST</strong></li>
+<li>Thử <strong>cache mount</strong> của docker buildkit khi <strong>build image</strong>. Oh, nó sẽ lưu giữ được <code>.next/cache</code> giữ các lần build. Nhưng việc cache này được thằng buildkit nó lưu và chỉ work với trường hợp mount docker sock như tại hạ đang làm, mà cũng chỉ work trên cùng 1 host build chứ đổi host khác là tèo ~&gt; Bỏ.</li>
+<li>Chạy thằng builder thành container, mount host volume để copy thư mục <code>.next/cache</code> ra host folder và dùng gitlab ci cache để lưu lại. Tuy nhiên sau đó tại hạ nhanh chóng nhận ra với việc mount docker sock thì container đang chạy script và container mới tạo đó là <strong>anh em</strong> (chứ không phải <strong>cha con</strong> như docker-in-docker). Tức là thằng container builder kia nó mount ra <strong>host</strong> thì mình đang đứng trong container chạy job cũng không đọc được ~&gt; Bỏ.</li>
+</ul>
+<p>Giữa lúc tưởng chừng mọi thứ bế tắc, thì tại hạ đột nhiên nhận ra 1 sự thật:</p>
+<ul>
+<li>Cái thư mục <code>.next/cache</code> mà ta đang muốn cache, thực chất nó vẫn <strong>ở trong cái $IMAGE_TAG_BUILDER</strong> mà tại hạ pull từ lúc đầu để làm cache docker layer.</li>
+<li>Docker layer không thể cache được chỗ đó vì dính <code>COPY . .</code>, nhưng cái mà tại hạ cần giữ giữa 2 lần build là cái thư mục <code>.next/cache</code></li>
+</ul>
+<p>~&gt; <strong>Copy nó từ image cũ ra trước khi build là được!!!</strong></p>
+<p>Vậy là sửa lại 1 chút cái <code>.gitlab-ci.yml</code> để nó copy folder <code>.next/cache</code> từ image cũ ra trước khi build.</p>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">IMAGE_TAG_BUILDER:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/builder:latest</span>
+  <span class="hljs-attr">IMAGE_TAG:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">DOCKER_BUILDKIT:</span> <span class="hljs-string">&#x27;1&#x27;</span>
+
+<span class="hljs-attr">build:</span>
+  <span class="hljs-attr">stage:</span> <span class="hljs-string">build</span>
+  <span class="hljs-attr">before_script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">login</span> <span class="hljs-string">-u</span> <span class="hljs-string">gitlab-ci-token</span> <span class="hljs-string">-p</span> <span class="hljs-string">$CI_JOB_TOKEN</span> <span class="hljs-string">registry.gitlab.com</span>
+    <span class="hljs-comment"># Make .next directory</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">mkdir</span> <span class="hljs-string">-p</span> <span class="hljs-string">.next</span>
+  <span class="hljs-attr">script:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">pull</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">||</span> <span class="hljs-string">echo</span> <span class="hljs-string">&quot;Old image not exists, build from scratch&quot;</span>
+    <span class="hljs-comment"># Copy cache folder from image </span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">image</span> <span class="hljs-string">inspect</span> <span class="hljs-string">&quot;$IMAGE_TAG_BUILDER&quot;</span> <span class="hljs-string">&amp;&gt;</span> <span class="hljs-string">/dev/null</span> <span class="hljs-string">&amp;&amp;</span> <span class="hljs-string">container_id=$(docker</span> <span class="hljs-string">create</span> <span class="hljs-string">&quot;$IMAGE_TAG_BUILDER&quot;</span><span class="hljs-string">)</span> <span class="hljs-string">&amp;&amp;</span> <span class="hljs-string">docker</span> <span class="hljs-string">cp</span> <span class="hljs-string">&quot;$container_id:/app/.next/cache&quot;</span> <span class="hljs-string">.next/</span> <span class="hljs-string">&amp;&amp;</span> <span class="hljs-string">docker</span> <span class="hljs-string">rm</span> <span class="hljs-string">&quot;$container_id&quot;</span> <span class="hljs-string">||</span> <span class="hljs-string">echo</span> <span class="hljs-string">&quot;Image $IMAGE_TAG_BUILDER does not exist. Doing nothing.&quot;</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">--target=builder</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">build</span> <span class="hljs-string">--build-arg</span> <span class="hljs-string">BUILDKIT_INLINE_CACHE=1</span> <span class="hljs-string">--cache-from</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span> <span class="hljs-string">-t</span> <span class="hljs-string">$IMAGE_TAG</span> <span class="hljs-string">.</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">docker</span> <span class="hljs-string">push</span> <span class="hljs-string">$IMAGE_TAG_BUILDER</span>
+</code></pre>
+<blockquote>
+<p><strong>Tips:</strong> Bạn không cần phải run 1 container để copy file bên trong ra mà chỉ cần <strong>create container</strong> là đủ.</p>
+</blockquote>
+<p>Chỗ này để có thể hoạt động được thì phải thêm dòng sau vào <code>.dockerignore</code> để nó ignore thư mục <code>.next</code> nhưng bỏ qua thư mục <code>.next/cache</code> thì mới có thể copy được thư mục <code>.next/cache</code> vào build context nhé:</p>
+<pre><code class="language-bash"><span class="hljs-comment"># other content</span>
+
+.next
+!.next/cache
+</code></pre>
+<p>Xong, hãy kiểm tra thành quả khi chỉ đổi code 1 chút và build lại:</p>
+<p><img src="img/day-302/image-9.webp" alt="image.png"></p>
+<p>Xem lại phần detail job, các bạn sẽ thấy lệnh <code>yarn build</code> dù không được docker layer cache nhưng chạy với thời gian chỉ 13s thay vì 38s như những lần build trước đó.</p>
+<h2 id="ngoài-lề-đặt-tên-docker-image-tối-ưu-cho-cicd">Ngoài lề: Đặt tên docker image tối ưu cho CI/CD</h2>
+<p>Đặt tên luôn là một vấn đề khó, từ bên biến tới tên hàm và giờ là tên image. Làm sao để nó đáp ứng được rất nhiều nhu cầu (mà thường lúc đặt tên chúng ta không nghĩ tới)? Chỉ có thể xuất phát từ trải nghiệm và kinh nghiệm mà thôi. Đến 1 lúc nào đó, bạn gặp một nhu cầu mà cái tên cũ không đáp ứng được, thì bạn sẽ có kinh nghiệm cho lần sau.</p>
+<p>Còn đây là một số kinh nghiệm từ việc đặt tên image của tại hạ. Có thể những cái tên này chỉ đáp ứng với nhu cầu nhất định và không fit với nhu cầu của các bạn. Nhưng hãy lấy những nhu cầu này để tham khảo xem mình có tận dụng được gì không nhé.</p>
+<p>Requirement:</p>
+<ul>
+<li>Mỗi lần build code phải sinh ra 1 tag riêng tương ứng, từ image tag cũng tra cứu lại được git history.</li>
+<li>Image tag dễ dàng thay thế được trong các file manifest GitOps bằng các tool CLI</li>
+<li>Giữ lại lịch sử 5 tag gần nhất để rollback</li>
+<li>Tách biệt môi trường (dev, stg, prod) với 5 tag lịch sử tương ứng</li>
+<li>Lưu trữ cả các image trung gian (ví dụ builder stage) để làm cache</li>
+</ul>
+<p>Từ những yêu cầu trên, đây là cách tại hạ đặt tên cho image:</p>
+<pre><code class="language-yaml"><span class="hljs-attr">image:</span> <span class="hljs-string">docker:24.0.7</span>
+
+<span class="hljs-attr">stages:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">build</span>
+
+<span class="hljs-attr">variables:</span>
+  <span class="hljs-attr">RUNTIME_IMAGE_TAG:</span> <span class="hljs-string">runtime-$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">RUNTIME_IMAGE:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:runtime-$CI_COMMIT_SHORT_SHA</span>
+  <span class="hljs-attr">BUILDER_IMAGE:</span> <span class="hljs-string">$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME/builder:latest</span>
+</code></pre>
+<ul>
+<li>Ở đây tại hạ sử dụng <code>runtime-$CI_COMMIT_SHORT_SHA</code> để đánh tag cho runtime image. Sử dụng <code>$CI_COMMIT_SHORT_SHA</code> thay cho <code>$CI_COMMIT_SHA</code> để image tag ngắn hơn mà vẫn đáp ứng được tính unique. Thêm <code>runtime-</code> prefix để dễ dàng tìm ra cái tag này hơn bằng các tool cli như <code>sed</code> khi edit manifest trong GitOps.</li>
+<li>Thêm <code>$CI_COMMIT_REF_NAME</code> vào tên image là để tách biệt image giữa các môi trường (bằng branch) khác nhau. Do đó có thể set được cleanup policy 5 tag gần nhất. Nếu không có yếu tố này mà chỉ có <code>$CI_REGISTRY_IMAGE:runtime-$CI_COMMIT_SHORT_SHA</code> thì sẽ không thể clean được khi image ở các môi trường lẫn vào nhau và nhiều khi clean image cũ sẽ khiến môi trường đang chạy bị lỗi.</li>
+<li>Đặt tên builder image với <code>/builder</code> và tag <code>latest</code> vì image builder chỉ cần 1 image làm cache và phải tách bạch phần tên với runtime image. Đừng đặt tên builder image kiểu <code>$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:builder</code> vì nó cũng bị lẫn với image runtime và cleanup cũng phải set rule đặc biệt đó.</li>
+</ul>
+<p>Sau đó chúng ta có thể setup cleanup rule như sau để Gitlab tự động xóa bớt image cũ không xài tới (và làm nặng repo lên rất rất nhiều)</p>
+<p><img src="img/day-302/image-10.webp" alt="image.png"></p>
+<h2 id="tổng-kết">Tổng kết</h2>
+<p>Tóm tắt bí kíp bằng 3 chiêu thức chính:</p>
+<ul>
+<li><strong>Setup self-hosted Gitlab runner để build được docker image</strong></li>
+<li><strong>Sử dụng docker layer cache để tối ưu các step install dependencies</strong></li>
+<li><strong>Trích xuất cache folder từ image cũ để tối ưu các step build code</strong></li>
+</ul>
+<p>Bonus thêm cho các vị huynh đài chiêu thức phụ: <strong>Đặt tên docker image để phù hợp với quá trình CI/CD</strong></p>
+<p>Project được lấy làm ví dụ trong bài để anh em tham khảo quá trình CI/CD: <a href="https://gitlab.com/minhpq331/next-ecommerce/-/pipelines">https://gitlab.com/minhpq331/next-ecommerce/-/pipelines</a></p>
+<p>Hết rồi. Upvote cho sự tái xuất giang hồ này của tại hạ nhé.</p>
+ 
+    </body>
+</html>
